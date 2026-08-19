@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "709678945324-ruemf95bb95oekpa1j1pilva3v3e27eb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.diskominfo.mobile",
+            "certificate_hash": "047a3818dc37f51a28048a3951ffab8a6ff36262"
+          }
+        },
+        {
           "client_id": "709678945324-h7aogudlfhcotkja62g0uihao5fv6dpd.apps.googleusercontent.com",
           "client_type": 3
         }
