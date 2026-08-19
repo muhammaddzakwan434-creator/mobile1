@@ -271,8 +271,10 @@ class UserService extends ChangeNotifier {
         // Web flow: Use popup to avoid native dependency issues
         userCredential = await _auth.signInWithPopup(GoogleAuthProvider());
       } else {
-        // Mobile flow: Use google_sign_in plugin
-        final GoogleSignIn googleSignIn = GoogleSignIn();
+        // Mobile flow: Use google_sign_in plugin with Explicit Server Client ID (Fixes Code 10)
+        final GoogleSignIn googleSignIn = GoogleSignIn(
+          serverClientId: '709678945324-h7aogudlfhcotkja62g0uihao5fv6dpd.apps.googleusercontent.com',
+        );
         final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
         if (googleUser == null) return null; // User cancelled the sign-in
 
