@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobile/services/api_service.dart';
 import 'package:mobile/models/user_model.dart';
 
@@ -17,6 +18,7 @@ class UserService extends ChangeNotifier {
   UserService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
@@ -36,6 +38,46 @@ class UserService extends ChangeNotifier {
 
   // Daftar akun terdaftar (Database User Real)
   final List<Map<String, String>> _registeredUsers = [];
+
+  /// --------------------------------------------------------------------------
+  /// FUNGSI 1: Sinkronisasi Profil Warga ke Cloud Firestore
+  /// --------------------------------------------------------------------------
+  Future<void> _syncUserToCloud(UserModel user) async {
+    try {
+      await _db.collection('warga').doc(user.id).set({
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'username': user.username,
+        'phone': user.phoneNumber,
+        'status': user.status,
+        'joinedDate': user.joinedDate,
+        'profileImagePath': user.profileImagePath,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Firestore User Sync Error: $e');
+    }
+  }
+
+  /// --------------------------------------------------------------------------
+  /// FUNGSI 2: Aliran Data Warga Real-Time untuk Admin
+  /// --------------------------------------------------------------------------
+  Stream<List<Map<String, String>>> getWargaStream() {
+    return _db.collection('warga').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': data['id']?.toString() ?? doc.id,
+          'nama': data['name']?.toString() ?? 'Warga',
+          'email': data['email']?.toString() ?? '-',
+          'phone': data['phone']?.toString() ?? '-',
+          'status': data['status']?.toString() ?? 'ACTIVE',
+          'joined_date': data['joinedDate']?.toString() ?? '18 Agt 2026',
+        };
+      }).toList();
+    });
+  }
 
   Future<void> init() async {
     await _loadFromLocal();
@@ -399,6 +441,11 @@ class UserService extends ChangeNotifier {
       'profile_image_path': user.profileImagePath,
     };
     await prefs.setString('user_profile', jsonEncode(data));
+    
+    // SINKRONISASI KE CLOUD SETIAP KALI SIMPAN LOKAL
+    if (_isLoggedIn && user.id != 'GUEST-001') {
+      await _syncUserToCloud(user);
+    }
   }
 
   Future<bool> updateProfile(UserModel updatedUser) async {

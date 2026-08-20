@@ -15,6 +15,7 @@ class AdminUserModel {
   final bool isActive;
   final bool isOnline;
   final DateTime createdAt;
+  final DateTime? lastSeen; // Waktu terakhir aktif (Presence System)
 
   AdminUserModel({
     required this.id,
@@ -28,6 +29,7 @@ class AdminUserModel {
     this.isActive = true,
     this.isOnline = false,
     required this.createdAt,
+    this.lastSeen,
   });
 
   String get initials {
@@ -59,6 +61,7 @@ class AdminUserModel {
       'isActive': isActive,
       'isOnline': isOnline,
       'createdAt': createdAt.toIso8601String(),
+      'lastSeen': lastSeen?.toIso8601String(),
     };
   }
 
@@ -77,6 +80,7 @@ class AdminUserModel {
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt']) ?? DateTime.now()
           : DateTime.now(),
+      lastSeen: map['lastSeen'] != null ? DateTime.tryParse(map['lastSeen']) : null,
     );
   }
 
@@ -92,6 +96,7 @@ class AdminUserModel {
     bool? isActive,
     bool? isOnline,
     DateTime? createdAt,
+    DateTime? lastSeen,
   }) {
     return AdminUserModel(
       id: id ?? this.id,
@@ -105,6 +110,7 @@ class AdminUserModel {
       isActive: isActive ?? this.isActive,
       isOnline: isOnline ?? this.isOnline,
       createdAt: createdAt ?? this.createdAt,
+      lastSeen: lastSeen ?? this.lastSeen,
     );
   }
 }

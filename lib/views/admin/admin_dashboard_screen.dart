@@ -5,6 +5,7 @@
 // =============================================================================
 
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:intl/intl.dart';
 import '../../models/instansi_model.dart';
 import '../../models/layanan_model.dart';
@@ -91,6 +92,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   late int _selectedNavIndex;
   bool _isProfileMenuVisible = false;
   String? _currentAdminId;
+  Timer? _presenceTimer;
 
   // CONTROLLERS PENCARIAN PADA SUB-VIEW KELOLA
   final TextEditingController _instansiSearchController = TextEditingController();
@@ -126,19 +128,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       final email = await AdminAuthService().getAdminEmail();
       
-      // Tunggu sebentar sampai list admin terisi jika sedang loading
+      // Tunggu sebentar sampai list admin terisi (Sinkronisasi Firestore)
       if (_adminService.adminList.isEmpty) {
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(seconds: 1));
       }
 
       final admin = _adminService.adminList.firstWhere(
         (e) => e.email.toLowerCase() == email.toLowerCase(),
       );
       _currentAdminId = admin.id;
-      // Update status ke Online di Cloud (RTDB)
-      await _adminService.updateAdminOnlineStatus(admin.id, true);
+
+      // 1. Kirim sinyal Online pertama kali
+      await _adminService.updateAdminHeartbeat(admin.id);
+
+      // 2. Pasang sistem detak jantung (Heartbeat) setiap 30 detik
+      _presenceTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (_currentAdminId != null) {
+          _adminService.updateAdminHeartbeat(_currentAdminId!);
+        }
+      });
     } catch (e) {
-      debugPrint('Presence init safe fallback: $e');
+      debugPrint('Presence init error: $e');
     }
   }
 
@@ -152,6 +162,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   void dispose() {
+    _presenceTimer?.cancel();
     _opdService.removeListener(_refresh);
     _adminService.removeListener(_refresh);
     UserService().removeListener(_refresh);
@@ -165,6 +176,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  bool _isCurrentlyOnline(AdminUserModel admin) {
+    if (!admin.isOnline) return false;
+    if (admin.lastSeen == null) return false;
+    
+    // Admin dianggap offline jika tidak ada detak jantung selama 90 detik
+    final diff = DateTime.now().difference(admin.lastSeen!);
+    return diff.inSeconds < 90;
   }
 
   // ---------------------------------------------------------------------------
@@ -306,9 +326,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onPressed: () async {
                         Navigator.pop(context);
                         
-                        // Update status ke Offline sebelum logout (Check-in System)
+                        // Update status ke Offline sebelum logout (Presence System)
                         if (_currentAdminId != null) {
-                          await _adminService.updateAdminOnlineStatus(_currentAdminId ?? '', false);
+                          await _adminService.setAdminOffline(_currentAdminId!);
                         }
 
                         await AdminAuthService().logout();
@@ -2727,477 +2747,456 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // ===========================================================================
   // VIEW: KELOLA PENGGUNA (PUSAT IDENTITAS WARGA - EXACT MATCH SCREENSHOT)
   // ===========================================================================
+  // ===========================================================================
+  // VIEW: KELOLA PENGGUNA (PUSAT IDENTITAS WARGA - REAL-TIME CLOUD)
+  // ===========================================================================
   Widget _buildKelolaPenggunaView(BuildContext context, Color sidebarBg, Color accentGold) {
-    final allWarga = UserService().getRegisteredWarga();
-    final filteredWarga = allWarga.where((item) {
-      final q = _penggunaSearchQuery.toLowerCase();
-      final nama = (item['nama'] ?? '').toLowerCase();
-      final email = (item['email'] ?? '').toLowerCase();
-      final phone = (item['phone'] ?? '').toLowerCase();
-      final nik = (item['nik'] ?? '').toLowerCase();
-      final status = (item['status'] ?? '').toLowerCase();
-      final id = (item['id'] ?? '').toLowerCase();
-      return nama.contains(q) ||
-          email.contains(q) ||
-          phone.contains(q) ||
-          nik.contains(q) ||
-          status.contains(q) ||
-          id.contains(q);
-    }).toList();
+    return StreamBuilder<List<Map<String, String>>>(
+      stream: UserService().getWargaStream(),
+      builder: (context, snapshot) {
+        final allWarga = snapshot.data ?? [];
+        
+        final filteredWarga = allWarga.where((item) {
+          final q = _penggunaSearchQuery.toLowerCase();
+          final nama = (item['nama'] ?? '').toLowerCase();
+          final email = (item['email'] ?? '').toLowerCase();
+          final phone = (item['phone'] ?? '').toLowerCase();
+          return nama.contains(q) || email.contains(q) || phone.contains(q);
+        }).toList();
 
-    final totalTerdaftar = allWarga.length;
-    final totalTerverifikasi = allWarga.where((e) {
-      final status = e['status'] ?? '';
-      return status == 'ACTIVE' || status.contains('IKD') || status.contains('SSO') || status == 'TERVERIFIKASI';
-    }).length;
-    final totalDitangguhkan = allWarga.where((e) {
-      final status = e['status'] ?? '';
-      return status == 'DITANGGUHKAN' || status == 'SUSPENDED';
-    }).length;
+        final totalTerdaftar = allWarga.length;
+        final totalTerverifikasi = allWarga.where((e) {
+          final status = e['status'] ?? '';
+          return status == 'ACTIVE' || status.contains('IKD') || status.contains('SSO') || status.contains('Google') || status.contains('OTP');
+        }).length;
+        final totalDitangguhkan = allWarga.where((e) {
+          final status = e['status'] ?? '';
+          return status == 'DITANGGUHKAN' || status == 'SUSPENDED';
+        }).length;
 
-    const int itemsPerPage = 5;
-    final totalPages = (filteredWarga.length / itemsPerPage).ceil().clamp(1, 99);
-    final startIndex = ((_penggunaCurrentPage - 1) * itemsPerPage).clamp(0, filteredWarga.isEmpty ? 0 : filteredWarga.length - 1);
-    final pageItems = filteredWarga.isEmpty ? <Map<String, String>>[] : filteredWarga.skip(startIndex).take(itemsPerPage).toList();
+        const int itemsPerPage = 5;
+        final totalPages = (filteredWarga.length / itemsPerPage).ceil().clamp(1, 99);
+        final startIndex = ((_penggunaCurrentPage - 1) * itemsPerPage).clamp(0, filteredWarga.isEmpty ? 0 : filteredWarga.length - 1);
+        final pageItems = filteredWarga.isEmpty ? <Map<String, String>>[] : filteredWarga.skip(startIndex).take(itemsPerPage).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // TOP STATS BANNER (DARK NAVY CARD WITH GOLD BORDER - EXACT MATCH SCREENSHOT)
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A1E33),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accentGold.withOpacity(0.5), width: 1.5),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F000000),
-                blurRadius: 16,
-                offset: Offset(0, 6),
-              )
-            ],
-          ),
-          child: Row(
-            children: [
-              // STAT 1: POPULASI TERDAFTAR
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: accentGold.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.people_rounded, color: Color(0xFFE8A33D), size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // TOP STATS BANNER (DARK NAVY CARD WITH GOLD BORDER - REAL-TIME)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A1E33),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: accentGold.withOpacity(0.5), width: 1.5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F000000),
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
+                  )
+                ],
+              ),
+              child: Row(
+                children: [
+                  // STAT 1: POPULASI TERDAFTAR
+                  Expanded(
+                    child: Row(
                       children: [
-                        const Text(
-                          'POPULASI TERDAFTAR',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: accentGold.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.people_rounded, color: Color(0xFFE8A33D), size: 22),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$totalTerdaftar',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'POPULASI TERDAFTAR',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$totalTerdaftar',
+                              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              Container(width: 1, height: 40, color: Colors.white12),
+                  ),
+                  Container(width: 1, height: 40, color: Colors.white12),
 
-              // STAT 2: IDENTITAS TERVERIFIKASI
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 20.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE2F7E2).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.verified_rounded, color: Color(0xFF81C784), size: 22),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  // STAT 2: IDENTITAS TERVERIFIKASI
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 20.0),
+                      child: Row(
                         children: [
-                          const Text(
-                            'IDENTITAS TERVERIFIKASI',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2F7E2).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.verified_rounded, color: Color(0xFF81C784), size: 22),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$totalTerverifikasi',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'IDENTITAS TERVERIFIKASI',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$totalTerverifikasi',
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              Container(width: 1, height: 40, color: Colors.white12),
-
-              // STAT 3: AKUN DITANGGUHKAN
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 20.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFCE8E6).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.cancel_rounded, color: Color(0xFFEF5350), size: 22),
-                      ),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'AKUN DITANGGUHKAN',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$totalDitangguhkan',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // MASTER RECORD INDEX BAR WITH SEARCH INPUT & TAMBAH USER BUTTON
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(width: 4, height: 20, decoration: BoxDecoration(color: accentGold, borderRadius: BorderRadius.circular(2))),
-                const SizedBox(width: 10),
-                const Text(
-                  'MASTER RECORD INDEX',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), letterSpacing: 0.8, fontFamily: 'Poppins'),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _showTambahWargaDialog(context),
-                  icon: const Icon(Icons.person_add_rounded, size: 16),
-                  label: const Text('Tambah Pengguna', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F2942),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    elevation: 0,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 320,
-                  height: 40,
-                  child: TextFormField(
-                    controller: _penggunaSearchController,
-                    onChanged: (val) => setState(() {
-                      _penggunaSearchQuery = val;
-                      _penggunaCurrentPage = 1;
-                    }),
-                    style: const TextStyle(fontSize: 12.5, fontFamily: 'Poppins'),
-                    decoration: InputDecoration(
-                      hintText: 'Cari Nama, Email, atau Nomor WhatsApp...',
-                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontFamily: 'Poppins'),
-                      prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400, size: 18),
-                      fillColor: Colors.white,
-                      filled: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.grey.shade200)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Color(0xFF0F2942))),
                     ),
                   ),
+                  Container(width: 1, height: 40, color: Colors.white12),
+
+                  // STAT 3: AKUN DITANGGUHKAN
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 20.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFCE8E6).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.cancel_rounded, color: Color(0xFFEF5350), size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'AKUN DITANGGUHKAN',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.8, fontFamily: 'Poppins'),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$totalDitangguhkan',
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // MASTER RECORD INDEX BAR WITH SEARCH INPUT & TAMBAH USER BUTTON
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(width: 4, height: 20, decoration: BoxDecoration(color: accentGold, borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'MASTER RECORD INDEX (CLOUD LIVE)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), letterSpacing: 0.8, fontFamily: 'Poppins'),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _showTambahWargaDialog(context),
+                      icon: const Icon(Icons.person_add_rounded, size: 16),
+                      label: const Text('Tambah Pengguna', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F2942),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        elevation: 0,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 320,
+                      height: 40,
+                      child: TextFormField(
+                        controller: _penggunaSearchController,
+                        onChanged: (val) => setState(() {
+                          _penggunaSearchQuery = val;
+                          _penggunaCurrentPage = 1;
+                        }),
+                        style: const TextStyle(fontSize: 12.5, fontFamily: 'Poppins'),
+                        decoration: InputDecoration(
+                          hintText: 'Cari Nama, Email, atau Telepon...',
+                          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontFamily: 'Poppins'),
+                          prefixIcon: Icon(Icons.search_rounded, color: Colors.grey.shade400, size: 18),
+                          fillColor: Colors.white,
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.grey.shade200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Color(0xFF0F2942))),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-        // USER CARDS LISTING (FLOATING WHITE CARD WITH GREEN/RED LEFT ACCENT BORDER)
-        if (filteredWarga.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: const Center(
-              child: Text('Tidak ada data warga yang sesuai pencarian.', style: TextStyle(color: Colors.grey, fontFamily: 'Poppins')),
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: pageItems.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final item = pageItems[index];
-              final String id = item['id'] ?? 'SOA-${1000 + index}';
-              final String nama = item['nama'] ?? 'Warga';
-              final String email = item['email'] ?? 'warga@gmail.com';
-              final String phone = item['phone'] ?? '628222222222';
-              final String status = item['status'] ?? 'ACTIVE';
-              final bool isSuspended = status == 'DITANGGUHKAN' || status == 'SUSPENDED';
-
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            // USER CARDS LISTING (REAL-TIME STREAM)
+            if (pageItems.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(40),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border(
-                    left: BorderSide(
-                      color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF00C853),
-                      width: 4,
-                    ),
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x06000000),
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    )
-                  ],
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Row(
-                  children: [
-                    // AVATAR BADGE CONTAINER (EXACT MATCH SCREENSHOT)
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F7FC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF00C853),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            isSuspended ? Icons.block_rounded : Icons.badge_outlined,
-                            color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF0F2942),
-                            size: 14,
-                          ),
+                child: Center(
+                  child: snapshot.connectionState == ConnectionState.waiting 
+                    ? const CircularProgressIndicator()
+                    : const Text('Tidak ada data warga yang terdaftar di internet.', style: TextStyle(color: Colors.grey, fontFamily: 'Poppins')),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: pageItems.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = pageItems[index];
+                  final String id = item['id'] ?? 'SOA-${1000 + index}';
+                  final String nama = item['nama'] ?? 'Warga';
+                  final String email = item['email'] ?? '-';
+                  final String phone = item['phone'] ?? '-';
+                  final String status = item['status'] ?? 'ACTIVE';
+                  final bool isSuspended = status == 'DITANGGUHKAN' || status == 'SUSPENDED';
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border(
+                        left: BorderSide(
+                          color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF00C853),
+                          width: 4,
                         ),
                       ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x06000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        )
+                      ],
                     ),
-                    const SizedBox(width: 16),
+                    child: Row(
+                      children: [
+                        // AVATAR BADGE CONTAINER (EXACT MATCH SCREENSHOT)
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4F7FC),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Center(
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF00C853),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Icon(
+                                isSuspended ? Icons.block_rounded : Icons.badge_outlined,
+                                color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF0F2942),
+                                size: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
 
-                    // COLUMN 1: NAMA PENDUDUK & ID
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'NAMA PENDUDUK',
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            nama,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
-                          ),
-                          Text(
-                            'ID: $id',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'Poppins'),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // COLUMN 2: KONTAK RESMI (EMAIL & WHATSAPP)
-                    Expanded(
-                      flex: 4,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'KONTAK RESMI',
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
+                        // COLUMN 1: NAMA PENDUDUK & ID
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.mail_outline_rounded, size: 13, color: Colors.grey),
-                              const SizedBox(width: 6),
-                              Expanded(
+                              const Text(
+                                'NAMA PENDUDUK',
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                nama,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+                              ),
+                              Text(
+                                'ID: $id',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey, fontFamily: 'Poppins'),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // COLUMN 2: KONTAK RESMI (EMAIL & TELEPON)
+                        Expanded(
+                          flex: 4,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'KONTAK RESMI',
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(Icons.mail_outline_rounded, size: 13, color: Colors.grey),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      email,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(Icons.phone_android_rounded, size: 13, color: Colors.grey),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    phone,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // COLUMN 3: STATUS AKUN BADGE
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'STATUS AKUN',
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isSuspended ? const Color(0xFFFCE8E6) : const Color(0xFFE2F7E2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF81C784),
+                                  ),
+                                ),
                                 child: Text(
-                                  email,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
-                                  overflow: TextOverflow.ellipsis,
+                                  isSuspended ? 'DITANGGUHKAN' : status,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSuspended ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
+                                    fontFamily: 'Poppins',
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(Icons.chat_outlined, size: 13, color: Color(0xFF25D366)),
-                              const SizedBox(width: 6),
-                              Text(
-                                phone,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
 
-                    // COLUMN 3: STATUS AKUN BADGE
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'STATUS AKUN',
-                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5, fontFamily: 'Poppins'),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isSuspended ? const Color(0xFFFCE8E6) : const Color(0xFFE2F7E2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSuspended ? const Color(0xFFEF5350) : const Color(0xFF81C784),
+                        // COLUMN 4: ACTION BUTTONS (INFO, SUSPEND/UNSUSPEND, EDIT, DELETE)
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
+                                child: const Icon(Icons.info_outline_rounded, color: Color(0xFF0F2942), size: 16),
                               ),
+                              onPressed: () {
+                                _showDetailWargaDialog(context, item);
+                              },
+                              tooltip: 'Detail Akun Warga',
                             ),
-                            child: Text(
-                              isSuspended ? 'DITANGGUHKAN' : status,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
-                                color: isSuspended ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
-                                fontFamily: 'Poppins',
+                            IconButton(
+                              icon: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: isSuspended ? const Color(0xFFE2F7E2) : const Color(0xFFFFF3CD),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  isSuspended ? Icons.check_circle_outline_rounded : Icons.block_rounded,
+                                  color: isSuspended ? Colors.green : Colors.orange,
+                                  size: 16,
+                                ),
                               ),
+                              onPressed: () {
+                                _konfirmasiTangguhkanWarga(context, item);
+                              },
+                              tooltip: isSuspended ? 'Aktifkan Akun' : 'Tangguhkan Akun',
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // COLUMN 4: ACTION BUTTONS (INFO, SUSPEND/UNSUSPEND, EDIT, DELETE)
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.info_outline_rounded, color: Color(0xFF0F2942), size: 16),
-                          ),
-                          onPressed: () {
-                            _showDetailWargaDialog(context, item);
-                          },
-                          tooltip: 'Detail Akun Warga',
-                        ),
-                        IconButton(
-                          icon: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isSuspended ? const Color(0xFFE2F7E2) : const Color(0xFFFFF3CD),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              isSuspended ? Icons.check_circle_outline_rounded : Icons.block_rounded,
-                              color: isSuspended ? Colors.green : Colors.orange,
-                              size: 16,
-                            ),
-                          ),
-                          onPressed: () {
-                            _konfirmasiTangguhkanWarga(context, item);
-                          },
-                          tooltip: isSuspended ? 'Aktifkan Akun' : 'Tangguhkan Akun',
-                        ),
-                        IconButton(
-                          icon: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.edit_outlined, color: Color(0xFF1E88E5), size: 16),
-                          ),
-                          onPressed: () {
-                            _showEditWargaDialog(context, item);
-                          },
-                          tooltip: 'Edit Data Warga',
-                        ),
-                        IconButton(
-                          icon: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(color: const Color(0xFFFCE8E6), borderRadius: BorderRadius.circular(8)),
-                            child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 16),
-                          ),
-                          onPressed: () {
-                            _konfirmasiHapusWarga(context, item);
-                          },
-                          tooltip: 'Hapus Akun Warga',
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
 
-        const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-        // STEPPER PAGINATION CONTROL [ - ] [ 2 ] [ + ] (DESAIN EXACT GAMBAR 2)
-        _buildPaginationStepper(
-          _penggunaCurrentPage,
-          totalPages,
-          (newPage) => setState(() => _penggunaCurrentPage = newPage),
-        ),
-        const SizedBox(height: 16),
-      ],
+            // STEPPER PAGINATION CONTROL [ - ] [ 2 ] [ + ] (DESAIN EXACT GAMBAR 2)
+            _buildPaginationStepper(
+              _penggunaCurrentPage,
+              totalPages,
+              (newPage) => setState(() => _penggunaCurrentPage = newPage),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
 
@@ -4671,23 +4670,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 children: [
                                   CircleAvatar(
                                     radius: 3.5,
-                                    backgroundColor: admin.isOnline ? const Color(0xFF10B981) : Colors.grey.shade400,
+                                    backgroundColor: _isCurrentlyOnline(admin) ? const Color(0xFF10B981) : Colors.grey.shade400,
                                   ),
                                   const SizedBox(width: 6),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        admin.isOnline ? 'ONLINE' : 'OFFLINE',
+                                        _isCurrentlyOnline(admin) ? 'ONLINE' : 'OFFLINE',
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
-                                          color: admin.isOnline ? const Color(0xFF10B981) : Colors.grey.shade600,
+                                          color: _isCurrentlyOnline(admin) ? const Color(0xFF10B981) : Colors.grey.shade600,
                                           letterSpacing: 0.5,
                                           fontFamily: 'Poppins',
                                         ),
                                       ),
-                                      if (!admin.isOnline)
+                                      if (!_isCurrentlyOnline(admin))
                                         const Text(
                                           'BELUM LOGIN',
                                           style: TextStyle(
@@ -5567,23 +5566,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 children: [
                                   CircleAvatar(
                                     radius: 3.5,
-                                    backgroundColor: admin.isOnline ? const Color(0xFF10B981) : Colors.grey.shade400,
+                                    backgroundColor: _isCurrentlyOnline(admin) ? const Color(0xFF10B981) : Colors.grey.shade400,
                                   ),
                                   const SizedBox(width: 6),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        admin.isOnline ? 'ONLINE' : 'OFFLINE',
+                                        _isCurrentlyOnline(admin) ? 'ONLINE' : 'OFFLINE',
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
-                                          color: admin.isOnline ? const Color(0xFF10B981) : Colors.grey.shade600,
+                                          color: _isCurrentlyOnline(admin) ? const Color(0xFF10B981) : Colors.grey.shade600,
                                           letterSpacing: 0.5,
                                           fontFamily: 'Poppins',
                                         ),
                                       ),
-                                      if (!admin.isOnline)
+                                      if (!_isCurrentlyOnline(admin))
                                         const Text(
                                           'BELUM LOGIN',
                                           style: TextStyle(
