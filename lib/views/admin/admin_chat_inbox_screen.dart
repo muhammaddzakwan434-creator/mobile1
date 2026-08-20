@@ -135,6 +135,7 @@ class _AdminChatInboxScreenState extends State<AdminChatInboxScreen> {
                   final threadData = threadDoc.data() as Map<String, dynamic>;
                   final bool isUnread = threadData['unread'] == true;
                   final String userName = threadData['userName'] ?? 'Warga';
+                  final String userId = threadData['userId'] ?? 'SOA-GUEST';
                   final String topic = threadData['topic'] ?? 'Umum';
                   final String lastMsg = threadData['lastMessage'] ?? '';
                   
@@ -179,14 +180,28 @@ class _AdminChatInboxScreenState extends State<AdminChatInboxScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      userName,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: primaryColor,
-                                        fontFamily: 'Poppins',
-                                      ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          userName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: primaryColor,
+                                            fontFamily: 'Poppins',
+                                          ),
+                                        ),
+                                        Text(
+                                          'ID: $userId',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'Poppins',
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     Text(
                                       timeStr,

@@ -4,6 +4,7 @@ import 'package:mobile/widgets/guest_gatekeeper.dart';
 import 'package:mobile/views/informasi/maintenance_screen.dart';
 import 'package:mobile/services/opd_service.dart';
 import 'package:mobile/models/layanan_model.dart';
+import 'package:mobile/models/sektor_model.dart';
 
 class LayananKeluargaScreen extends StatelessWidget {
   const LayananKeluargaScreen({super.key});
@@ -294,12 +295,16 @@ class LayananKeluargaScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // GRID SUB-LAYANAN KELUARGA (DYNAMIC & REAL-TIME)
+                  // GRID SUB-LAYANAN KELUARGA (DYNAMIC & REAL-TIME 3-LAYER SYNC)
                   ListenableBuilder(
                     listenable: OpdService(),
                     builder: (context, _) {
                       final allLayanan = OpdService().getLayananBySektor('Keluarga');
                       final instansi = OpdService().getInstansiByKode('disdukcapil');
+                      final sektor = OpdService().getSektorList().firstWhere(
+                        (s) => s.title.toLowerCase().contains('keluarga'),
+                        orElse: () => SektorModel(id: '', title: 'Keluarga', imagePath: '', desc: '', iconName: ''),
+                      );
                       
                       if (allLayanan.isEmpty) {
                         return const Center(child: Text('Belum ada layanan tersedia di sektor ini.'));
@@ -317,7 +322,10 @@ class LayananKeluargaScreen extends StatelessWidget {
                         ),
                         itemBuilder: (context, index) {
                           final item = allLayanan[index];
-                          final bool isMaintenance = (instansi != null && !instansi.isActive) || !item.isActive;
+                          // CEK 3 LAPIS: Sektor, Instansi, atau Layanan spesifik
+                          final bool isMaintenance = !sektor.isActive || 
+                                                     (instansi != null && !instansi.isActive) || 
+                                                     !item.isActive;
 
                           // Map icon name string to IconData
                           IconData displayIcon = Icons.help_outline_rounded;

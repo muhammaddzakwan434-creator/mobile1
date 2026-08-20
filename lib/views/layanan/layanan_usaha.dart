@@ -117,7 +117,10 @@ class LayananUsahaScreen extends StatelessWidget {
               ),
               itemBuilder: (context, index) {
                 final item = allLayanan[index];
-                final bool isMaintenance = (sektor.id.isNotEmpty && !sektor.isActive) || (instansi != null && !instansi.isActive) || !item.isActive;
+                // CEK 3 LAPIS: Sektor, Instansi, atau Layanan spesifik
+                final bool isMaintenance = !sektor.isActive || 
+                                           (instansi != null && !instansi.isActive) || 
+                                           !item.isActive;
 
                 // Map icon name string to IconData
                 IconData displayIcon = Icons.storefront_rounded;

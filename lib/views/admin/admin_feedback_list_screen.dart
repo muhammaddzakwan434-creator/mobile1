@@ -18,23 +18,6 @@ class AdminFeedbackListScreen extends StatefulWidget {
 
 class _AdminFeedbackListScreenState extends State<AdminFeedbackListScreen> {
   final FeedbackService _feedbackService = FeedbackService();
-  List<FeedbackModel> _allFeedback = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final data = await _feedbackService.getAllFeedbackFromServer();
-    setState(() {
-      _allFeedback = data;
-      _isLoading = false;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,55 +58,59 @@ class _AdminFeedbackListScreenState extends State<AdminFeedbackListScreen> {
   }
 
   Widget _buildMainContent(Color primaryColor, Color accentColor) {
-    return Column(
-      children: [
-        // HEADER SUMMARY
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: primaryColor,
-          child: Row(
-            children: [
-              _buildStatBox('Total Masukan', '${_allFeedback.length}', Icons.forum_rounded, accentColor),
-              const SizedBox(width: 10),
-              _buildStatBox(
-                'Rating Rata-rata', 
-                _calculateAverageRating(), 
-                Icons.star_rounded, 
-                Colors.amber,
-              ),
-            ],
-          ),
-        ),
+    return StreamBuilder<List<FeedbackModel>>(
+      stream: _feedbackService.getFeedbackStream(),
+      builder: (context, snapshot) {
+        final feedbackList = snapshot.data ?? [];
 
-        // LIST FEEDBACK DARI SELURUH USER
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: _allFeedback.isEmpty
+        return Column(
+          children: [
+            // HEADER SUMMARY
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: primaryColor,
+              child: Row(
+                children: [
+                  _buildStatBox('Total Masukan', '${feedbackList.length}', Icons.forum_rounded, accentColor),
+                  const SizedBox(width: 10),
+                  _buildStatBox(
+                    'Rating Rata-rata', 
+                    _calculateAverageRating(feedbackList), 
+                    Icons.star_rounded, 
+                    Colors.amber,
+                  ),
+                ],
+              ),
+            ),
+
+            // LIST FEEDBACK DARI SELURUH USER
+            Expanded(
+              child: snapshot.connectionState == ConnectionState.waiting && feedbackList.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : feedbackList.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _allFeedback.length,
+                          itemCount: feedbackList.length,
                           itemBuilder: (context, index) {
-                            final item = _allFeedback[index];
+                            final item = feedbackList[index];
                             return _buildFeedbackCard(item, primaryColor, accentColor);
                           },
                         ),
-                ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
-  String _calculateAverageRating() {
-    if (_allFeedback.isEmpty) return '0.0';
+  String _calculateAverageRating(List<FeedbackModel> list) {
+    if (list.isEmpty) return '0.0';
     double sum = 0;
-    for (var f in _allFeedback) {
+    for (var f in list) {
       sum += f.rating;
     }
-    return (sum / _allFeedback.length).toStringAsFixed(1);
+    return (sum / list.length).toStringAsFixed(1);
   }
 
   Widget _buildStatBox(String label, String value, IconData icon, Color color) {

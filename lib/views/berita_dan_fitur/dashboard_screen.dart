@@ -14,9 +14,11 @@ import 'package:mobile/views/layanan/layanan_lingkungan.dart';
 import 'package:mobile/views/berita_dan_fitur/detail_berita_screen.dart';
 import 'package:mobile/views/informasi/help_center_screen.dart';
 import 'package:mobile/services/opd_service.dart';
+import 'package:mobile/services/user_service.dart';
 import 'package:mobile/views/informasi/maintenance_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
+import 'package:mobile/widgets/smart_image.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -96,9 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _newsTimer;
   Timer? _clockTimer;
 
-  Map<String, int> _sectorUsageCounts = {
-    'keluarga': 1,
-  };
+  // Daftar ID Sektor yang terakhir kali berinteraksi (Recency Logic)
+  List<String> _recentSectorIds = ['keluarga'];
 
   @override
   void initState() {
@@ -113,14 +114,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadSectorUsage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final Map<String, int> counts = {};
-      final sectors = ['keluarga', 'pendidikan', 'usaha', 'lingkungan', 'kendaraan', 'kesehatan'];
-      for (var s in sectors) {
-        counts[s] = prefs.getInt('usage_sector_$s') ?? (s == 'keluarga' ? 1 : 0);
-      }
+      // Mengambil daftar histori dari storage, defaultnya hanya Keluarga
+      final List<String> history = prefs.getStringList('recent_sectors_history') ?? ['keluarga'];
+      
       if (mounted) {
         setState(() {
-          _sectorUsageCounts = counts;
+          _recentSectorIds = history;
         });
       }
     } catch (_) {}
@@ -129,19 +128,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _trackSectorUsage(String sectorId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      int current = prefs.getInt('usage_sector_$sectorId') ?? (sectorId == 'keluarga' ? 1 : 0);
-      int updated = current + 1;
-      await prefs.setInt('usage_sector_$sectorId', updated);
+      
+      // 1. Ambil list lama
+      List<String> currentHistory = List.from(_recentSectorIds);
+      
+      // 2. Hapus jika ID sudah ada (agar tidak duplikat saat dipindah ke depan)
+      currentHistory.remove(sectorId.toLowerCase());
+      
+      // 3. Masukkan ke urutan paling depan (index 0)
+      currentHistory.insert(0, sectorId.toLowerCase());
+      
+      // 4. Batasi maksimal 5 sektor terakhir saja
+      if (currentHistory.length > 5) {
+        currentHistory = currentHistory.sublist(0, 5);
+      }
+      
+      // 5. Simpan permanen ke SharedPreferences
+      await prefs.setStringList('recent_sectors_history', currentHistory);
+      
       if (mounted) {
         setState(() {
-          _sectorUsageCounts[sectorId] = updated;
+          _recentSectorIds = currentHistory;
         });
       }
     } catch (_) {}
   }
 
   List<_SectorItem> _getFavoriteSectors() {
-    final allSectors = <_SectorItem>[
+    // Definisi Master Data Sektor
+    final allSectorsMaster = <_SectorItem>[
       _SectorItem(
         id: 'keluarga',
         title: 'Keluarga',
@@ -186,18 +201,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
 
-    List<_SectorItem> sorted = List.from(allSectors);
-    sorted.sort((a, b) {
-      int countA = _sectorUsageCounts[a.id] ?? 0;
-      int countB = _sectorUsageCounts[b.id] ?? 0;
-      return countB.compareTo(countA);
-    });
-
-    final activeSectors = sorted.where((s) => (_sectorUsageCounts[s.id] ?? 0) > 0).toList();
-    if (activeSectors.isEmpty) {
-      return [allSectors.first];
+    // Mengambil item sektor berdasarkan urutan di _recentSectorIds
+    List<_SectorItem> favoriteList = [];
+    for (String id in _recentSectorIds) {
+      final match = allSectorsMaster.where((s) => s.id == id).toList();
+      if (match.isNotEmpty) {
+        favoriteList.add(match.first);
+      }
     }
-    return activeSectors.take(4).toList();
+
+    // Fallback jika kosong
+    if (favoriteList.isEmpty) {
+      return [allSectorsMaster.first];
+    }
+    
+    return favoriteList.take(4).toList();
   }
 
   @override
@@ -407,39 +425,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           fontFamily: 'Poppins',
                         ),
                       ),
-                      // GREETING & TANGGAL & FOTO PROFIL
-                      Row(
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                      // GREETING & TANGGAL & FOTO PROFIL (DYNAMIC & REAL-TIME SYNC)
+                      ListenableBuilder(
+                        listenable: UserService(),
+                        builder: (context, _) {
+                          final user = UserService().currentUser;
+                          
+                          return Row(
                             children: [
-                              const Text(
-                                'Profil',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'Poppins',
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    user.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    _currentDate.isEmpty ? 'Rabu, 29 Juli 2026' : _currentDate,
+                                    style: const TextStyle(
+                                      color: Color(0xFFE8A33D),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Poppins',
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                _currentDate.isEmpty ? 'Rabu, 29 Juli 2026' : _currentDate,
-                                style: const TextStyle(
-                                  color: Color(0xFFE8A33D),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Poppins',
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFFE8A33D), width: 1.5),
+                                  color: Colors.white,
+                                ),
+                                child: ClipOval(
+                                  child: user.profileImagePath.isNotEmpty
+                                      ? SmartImage(
+                                          imagePath: user.profileImagePath,
+                                          width: 36,
+                                          height: 36,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0A1E33),
+                                              fontFamily: 'Poppins',
+                                            ),
+                                          ),
+                                        ),
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(width: 8),
-                          const CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.white,
-                            child: Icon(Icons.person, color: Color(0xFF0A1E33), size: 24),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -1356,24 +1407,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Column(
                 children: [
                   Expanded(
-                    child: Center(
-                      child: imagePath != null
-                          ? Image.asset(
-                              imagePath,
-                              width: 68,
-                              height: 68,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                fallbackIcon,
-                                color: const Color(0xFF0A1E33),
-                                size: 68,
-                              ),
-                            )
-                          : Icon(
-                              fallbackIcon,
-                              color: const Color(0xFF0A1E33),
-                              size: 68,
-                            ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0), // Beri ruang napas agar tidak sesak
+                      child: SmartImage(
+                        imagePath: imagePath ?? '',
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.contain, // Agar gambar utuh, tidak pernah terpotong
+                        fallbackIcon: fallbackIcon,
+                        fallbackColor: const Color(0xFF0A1E33),
+                      ),
                     ),
                   ),
                   Container(

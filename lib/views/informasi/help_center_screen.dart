@@ -80,22 +80,23 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
   }
 
   // FUNGSI 2: Penanganan Pengiriman Pesan (User Message & Auto Response Engine)
-  void _handleSendMessage(String text) {
+  void _handleSendMessage(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
     final String displayName = _getFriendlyName();
 
     _messageController.clear();
-    FocusScope.of(context).unfocus();
+    // FocusScope.of(context).unfocus(); // Biarkan keyboard tetap terbuka agar chat lancar
 
-    // Step A: Kirim Pesan Pengguna ke Service (Instan < 1ms)
-    _chatService.sendMessage(
+    // Step A: Kirim Pesan Pengguna ke Service (Instan Cloud Sync)
+    await _chatService.sendMessage(
       threadId: _threadId,
       text: trimmed,
       sender: MessageSender.user,
+      userId: _userService.currentUser.id,
       userName: displayName,
-      topic: 'Umum / Pusat Bantuan',
+      topic: 'Pusat Bantuan',
     );
 
     _scrollToBottom();

@@ -5,6 +5,8 @@
 // =============================================================================
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/feedback_model.dart';
 import 'api_service.dart';
 import 'user_service.dart';
@@ -15,6 +17,8 @@ class FeedbackService {
   static final FeedbackService _instance = FeedbackService._internal();
   factory FeedbackService() => _instance;
   FeedbackService._internal();
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // FUNGSI 1: Inisialisasi Service & Memuat Riwayat dari SQLite
   Future<void> init() async {
@@ -27,14 +31,52 @@ class FeedbackService {
   // Getter Riwayat Ulasan (Lokal)
   List<FeedbackModel> get history => List.unmodifiable(_history.reversed);
 
-  // FUNGSI UNTUK ADMIN: Mengambil seluruh feedback dari server
+  // FUNGSI UNTUK ADMIN: Mengambil seluruh feedback dari server (Stream Real-Time)
+  Stream<List<FeedbackModel>> getFeedbackStream() {
+    return _firestore
+        .collection('feedback')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return FeedbackModel(
+          id: doc.id,
+          userId: data['user_id'] ?? 'Warga',
+          userName: data['user_name'] ?? 'Warga Kota Sukabumi',
+          rating: data['rating'] ?? 5,
+          factor: data['factor'] ?? 'Umum',
+          reason: data['reason'] ?? '',
+          date: data['date'] != null 
+              ? (data['date'] as Timestamp).toDate() 
+              : DateTime.now(),
+        );
+      }).toList();
+    });
+  }
+
+  // FUNGSI UNTUK ADMIN: Mengambil seluruh feedback dari server (One-time fetch)
   Future<List<FeedbackModel>> getAllFeedbackFromServer() async {
     try {
-      final response = await ApiService.get('feedback');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => FeedbackModel.fromJson(json)).toList();
-      }
+      final snapshot = await _firestore
+          .collection('feedback')
+          .orderBy('date', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return FeedbackModel(
+          id: doc.id,
+          userId: data['user_id'],
+          userName: data['user_name'] ?? 'Warga Kota Sukabumi',
+          rating: data['rating'] ?? 5,
+          factor: data['factor'] ?? 'Umum',
+          reason: data['reason'] ?? '',
+          date: data['date'] != null 
+              ? (data['date'] as Timestamp).toDate() 
+              : DateTime.now(),
+        );
+      }).toList();
     } catch (e) {
       // Error handling
     }
@@ -86,7 +128,22 @@ class FeedbackService {
       'date': feedback.date.toIso8601String(),
     });
 
-    // Step C: Kirim ke Backend REST API Server
+    // Step C: Kirim ke Cloud Firestore (Real-Time Sync)
+    try {
+      final user = UserService().currentUser;
+      await _firestore.collection('feedback').add({
+        'user_id': user.id,
+        'user_name': user.name,
+        'rating': feedback.rating,
+        'factor': feedback.factor,
+        'reason': feedback.reason,
+        'date': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Firestore Feedback Sync Error: $e');
+    }
+
+    // Step D: Kirim ke Backend REST API Server (MySQL)
     final user = UserService().currentUser;
     final payload = {
       'user_id': user.id,

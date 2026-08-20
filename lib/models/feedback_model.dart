@@ -8,6 +8,7 @@
 class FeedbackModel {
   final String? id;      // ID dari server
   final String? userId;  // ID Pengguna (SOA-XXXXXX)
+  final String? userName; // Nama Asli Pengguna
   final int rating;      // Skor Penilaian Bintang (1 - 5)
   final String factor;   // Faktor Utama (Kecepatan, Kemudahan, Keramahan, dll)
   final String reason;   // Ulasan / Alasan Masukan Warga
@@ -16,6 +17,7 @@ class FeedbackModel {
   FeedbackModel({
     this.id,
     this.userId,
+    this.userName,
     required this.rating,
     required this.factor,
     required this.reason,
@@ -26,6 +28,7 @@ class FeedbackModel {
     return FeedbackModel(
       id: json['id']?.toString(),
       userId: json['user_id'],
+      userName: json['user_name'],
       rating: json['rating'] ?? 0,
       factor: json['factor'] ?? '',
       reason: json['reason'] ?? '',
