@@ -57,7 +57,22 @@ class ApiService {
     }
   }
 
-  // FUNGSI 5: Permintaan HTTP DELETE (Menghapus Data di Server)
+  // FUNGSI 5: Permintaan HTTP PATCH (Memperbarui Data Sebagian di Server)
+  static Future<http.Response> patch(String endpoint, Map<String, dynamic> data, {String? token}) async {
+    try {
+      final url = Uri.parse('$baseUrl/$endpoint');
+      final response = await http.patch(
+        url,
+        headers: _headers(token),
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 15));
+      return response;
+    } catch (e) {
+      return http.Response(jsonEncode({'message': 'Gagal memperbarui data di server: $e'}), 503);
+    }
+  }
+
+  // FUNGSI 6: Permintaan HTTP DELETE (Menghapus Data di Server)
   static Future<http.Response> delete(String endpoint, {String? token}) async {
     try {
       final url = Uri.parse('$baseUrl/$endpoint');

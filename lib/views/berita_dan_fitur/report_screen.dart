@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/views/layanan/layanan_keluarga.dart';
-import 'package:mobile/views/layanan/layanan_usaha.dart';
-import 'package:mobile/views/layanan/layanan_lingkungan.dart';
+import 'package:mobile/views/layanan/generic_layanan_sektor_screen.dart';
 import 'package:mobile/views/layanan/form_pengajuan_screen.dart';
+import 'package:mobile/services/opd_service.dart';
 import 'package:mobile/widgets/smart_image.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
 
@@ -135,33 +134,18 @@ class _ReportScreenState extends State<ReportScreen> {
                 GuestGatekeeper.checkAccess(
                   context,
                   onGranted: () {
-                    if (titleStr.contains('Keluarga')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LayananKeluargaScreen()),
-                      );
-                    } else if (titleStr.contains('Usaha')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LayananUsahaScreen()),
-                      );
-                    } else if (titleStr.contains('Lingkungan')) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LayananLingkunganScreen()),
-                      );
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FormPengajuanScreen(
-                            judulLayanan: 'Layanan $titleStr',
-                            deskripsi: item['desc'] as String,
-                            icon: (item['fallbackIcon'] ?? Icons.article_rounded) as IconData,
-                          ),
-                        ),
-                      );
-                    }
+                    final allSektor = OpdService().getSektorList();
+                    final sektor = allSektor.firstWhere(
+                      (s) => s.title.toLowerCase().contains(titleStr.toLowerCase().split(' ')[0]),
+                      orElse: () => allSektor[index < allSektor.length ? index : 0],
+                    );
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GenericLayananSektorScreen(sektor: sektor),
+                      ),
+                    );
                   },
                 );
               },

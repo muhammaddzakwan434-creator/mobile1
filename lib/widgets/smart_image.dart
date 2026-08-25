@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class SmartImage extends StatelessWidget {
@@ -27,7 +29,7 @@ class SmartImage extends StatelessWidget {
 
     if (path.isEmpty) {
       imageWidget = _buildFallback();
-    } else if (path.startsWith('http://') || path.startsWith('https://')) {
+    } else if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('blob:') || path.startsWith('data:')) {
       imageWidget = Image.network(
         path,
         width: width,
@@ -45,7 +47,17 @@ class SmartImage extends StatelessWidget {
       );
     } else {
       // Path lokal (hanya didukung di HP, di web otomatis ke fallback)
-      imageWidget = _buildFallback();
+      if (kIsWeb) {
+        imageWidget = _buildFallback();
+      } else {
+        imageWidget = Image.file(
+          File(path),
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => _buildFallback(),
+        );
+      }
     }
 
     if (borderRadius > 0) {

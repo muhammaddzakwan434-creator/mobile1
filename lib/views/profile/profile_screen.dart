@@ -11,6 +11,7 @@ import 'package:mobile/services/notification_service.dart';
 import 'package:mobile/models/notification_model.dart';
 import 'package:mobile/widgets/smart_image.dart';
 import 'package:mobile/widgets/admin_image_picker.dart';
+import 'package:mobile/widgets/guest_gatekeeper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -341,11 +342,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     alignment: Alignment.topRight,
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-                        ).then((_) {
-                          setState(() {});
+                        GuestGatekeeper.checkAccess(context, onGranted: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                          ).then((_) {
+                            setState(() {});
+                          });
                         });
                       },
                       child: Container(
@@ -368,7 +371,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       // FOTO AVATAR INTERAKTIF DENGAN TOMBOL KAMERA
                       GestureDetector(
-                        onTap: () => _showProfileImageModal(context, user),
+                        onTap: () {
+                          GuestGatekeeper.checkAccess(context, onGranted: () {
+                            _showProfileImageModal(context, user);
+                          });
+                        },
                         child: Stack(
                           children: [
                             Container(
@@ -452,8 +459,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.verified, color: Colors.blueAccent, size: 22),
+                                if (_userService.isLoggedIn && user.id != 'GUEST-001') ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.verified, color: Colors.blueAccent, size: 22),
+                                ],
                               ],
                             ),
                             Text(
@@ -497,10 +506,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Kritik & Saran',
                     subtitle: 'Bantu kami meningkatkan kualitas layanan',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const FeedbackScreen()),
-                      );
+                      GuestGatekeeper.checkAccess(context, onGranted: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const FeedbackScreen()),
+                        );
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
@@ -511,10 +522,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Pusat Bantuan',
                     subtitle: 'Pertanyaan umum dan bantuan penggunaan',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const HelpCenterScreen()),
-                      );
+                      GuestGatekeeper.checkAccess(context, onGranted: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const HelpCenterScreen()),
+                        );
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
@@ -525,10 +538,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Tentang Aplikasi',
                     subtitle: 'Informasi versi dan pengembang',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const AboutScreen()),
-                      );
+                      GuestGatekeeper.checkAccess(context, onGranted: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AboutScreen()),
+                        );
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
@@ -539,10 +554,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Syarat & Kebijakan Privasi',
                     subtitle: 'Ketentuan penggunaan dan keamanan data',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const TermsAndPolicyScreen()),
-                      );
+                      GuestGatekeeper.checkAccess(context, onGranted: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TermsAndPolicyScreen()),
+                        );
+                      });
                     },
                   ),
                   const SizedBox(height: 12),
@@ -554,7 +571,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () => _showLogoutBottomSheet(context),
+                      onPressed: () {
+                        GuestGatekeeper.checkAccess(context, onGranted: () {
+                          _showLogoutBottomSheet(context);
+                        });
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         foregroundColor: Colors.white,

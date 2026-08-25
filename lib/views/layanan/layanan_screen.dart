@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/views/layanan/layanan_keluarga.dart';
-import 'package:mobile/views/layanan/layanan_usaha.dart';
-import 'package:mobile/views/layanan/layanan_lingkungan.dart';
+import 'package:mobile/views/layanan/generic_layanan_sektor_screen.dart';
 import 'package:mobile/views/layanan/form_pengajuan_screen.dart';
 import 'package:mobile/widgets/smart_image.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
@@ -91,30 +89,12 @@ class LayananScreen extends StatelessWidget {
                     GuestGatekeeper.checkAccess(
                       context,
                       onGranted: () {
-                        if (isMaintenance) {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => MaintenanceScreen(title: sektor.title, category: 'Sektor Fase Kehidupan')));
-                          return;
-                        }
-
-                        final titleLower = sektor.title.toLowerCase();
-                        if (titleLower.contains('keluarga')) {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const LayananKeluargaScreen()));
-                        } else if (titleLower.contains('usaha')) {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const LayananUsahaScreen()));
-                        } else if (titleLower.contains('lingkungan')) {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const LayananLingkunganScreen()));
-                        } else {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FormPengajuanScreen(
-                                judulLayanan: 'Layanan ${sektor.title}',
-                                deskripsi: sektor.desc,
-                                icon: displayIcon,
-                              ),
-                            ),
-                          );
-                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => GenericLayananSektorScreen(sektor: sektor),
+                          ),
+                        );
                       },
                     );
                   },

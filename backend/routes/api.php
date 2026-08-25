@@ -231,6 +231,22 @@ Route::delete('/warga/{id}', function ($id) {
     return response()->json(['status' => 'success']);
 });
 
+Route::patch('/warga/{id}/toggle-status', function ($id) {
+    $user = \App\Models\User::where('id', $id)->orWhere('email', $id)->first();
+    if (!$user) {
+        return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+    }
+
+    $isCurrentlyActive = ($user->status == 'ACTIVE' || str_contains($user->status, 'IKD') || str_contains($user->status, 'SSO') || str_contains($user->status, 'TERVERIFIKASI'));
+    $user->status = $isCurrentlyActive ? 'DITANGGUHKAN' : 'ACTIVE';
+    $user->save();
+
+    return response()->json([
+        'status' => 'success',
+        'new_status' => $user->status
+    ]);
+});
+
 // FEEDBACK & SURVEI KRITIK SARAN ENDPOINTS (REAL DATABASE)
 Route::get('/feedback', function () {
     try {

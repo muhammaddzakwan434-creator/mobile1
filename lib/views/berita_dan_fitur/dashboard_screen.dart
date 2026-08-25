@@ -5,12 +5,10 @@ import 'dart:convert';
 import 'package:mobile/services/api_service.dart';
 import 'package:mobile/views/instansi/instansi_screen.dart';
 import 'package:mobile/views/instansi/info_diskominfo.dart';
-import 'package:mobile/views/instansi/info_dpmpstp.dart';
+import 'package:mobile/views/instansi/info_dpmptsp.dart';
 import 'package:mobile/views/instansi/info_dkp3.dart';
 import 'package:mobile/views/layanan/layanan_screen.dart';
-import 'package:mobile/views/layanan/layanan_keluarga.dart';
-import 'package:mobile/views/layanan/layanan_usaha.dart';
-import 'package:mobile/views/layanan/layanan_lingkungan.dart';
+import 'package:mobile/views/layanan/generic_layanan_sektor_screen.dart';
 import 'package:mobile/views/berita_dan_fitur/detail_berita_screen.dart';
 import 'package:mobile/views/informasi/help_center_screen.dart';
 import 'package:mobile/services/opd_service.dart';
@@ -18,6 +16,7 @@ import 'package:mobile/services/user_service.dart';
 import 'package:mobile/views/informasi/maintenance_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
+import 'package:mobile/widgets/global_search_delegate.dart';
 import 'package:mobile/widgets/smart_image.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -155,49 +154,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<_SectorItem> _getFavoriteSectors() {
-    // Definisi Master Data Sektor
+    final allSektor = OpdService().getSektorList();
     final allSectorsMaster = <_SectorItem>[
       _SectorItem(
         id: 'keluarga',
         title: 'Keluarga',
         imagePath: 'assets/icon/keluarga.png',
         icon: Icons.family_restroom_rounded,
-        routeBuilder: () => const LayananKeluargaScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title == 'Keluarga')),
       ),
       _SectorItem(
         id: 'pendidikan',
         title: 'Pendidikan',
         imagePath: 'assets/icon/pendidikan.png',
         icon: Icons.school_rounded,
-        routeBuilder: () => const LayananScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title == 'Pendidikan')),
       ),
       _SectorItem(
         id: 'usaha',
         title: 'Usaha',
         imagePath: 'assets/icon/usaha.png',
         icon: Icons.storefront_rounded,
-        routeBuilder: () => const LayananUsahaScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title == 'Usaha')),
       ),
       _SectorItem(
         id: 'lingkungan',
         title: 'Lingkungan',
         imagePath: 'assets/icon/lingkungan.png',
         icon: Icons.home_work_rounded,
-        routeBuilder: () => const LayananLingkunganScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title.contains('Lingkungan'))),
       ),
       _SectorItem(
         id: 'kendaraan',
         title: 'Kendaraan',
         imagePath: 'assets/icon/kendaraan.png',
         icon: Icons.directions_car_rounded,
-        routeBuilder: () => const LayananScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title == 'Kendaraan')),
       ),
       _SectorItem(
         id: 'kesehatan',
         title: 'Kesehatan',
         imagePath: 'assets/icon/kesehatan.png',
         icon: Icons.local_hospital_rounded,
-        routeBuilder: () => const LayananScreen(),
+        routeBuilder: () => GenericLayananSektorScreen(sektor: allSektor.firstWhere((s) => s.title == 'Kesehatan')),
       ),
     ];
 
@@ -602,22 +601,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          readOnly: true,
+                          onTap: () {
+                            showSearch(
+                              context: context,
+                              delegate: GlobalSearchDelegate(),
+                            );
+                          },
                           style: const TextStyle(fontSize: 13, fontFamily: 'Poppins'),
                           decoration: InputDecoration(
-                            hintText: 'Cari Layanan...',
+                            hintText: 'Cari Layanan, Dinas, atau Bantuan...',
                             hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontFamily: 'Poppins'),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                             suffixIcon: const Icon(Icons.search_rounded, color: Color(0xFF0A1E33), size: 24),
                           ),
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const LayananScreen()),
-                              );
-                            }
-                          },
                         ),
                       ),
                     ),
@@ -862,7 +860,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
-                              '10 Sektor',
+                              'Sektor',
                               style: TextStyle(
                                 color: Color(0xFF0A1E33),
                                 fontSize: 11,
@@ -914,20 +912,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       GuestGatekeeper.checkAccess(
                                         context,
                                         onGranted: () {
-                                          if (!sektor.isActive) {
-                                            Navigator.push(context, MaterialPageRoute(builder: (_) => MaintenanceScreen(title: sektor.title, category: 'Sektor Fase Kehidupan')));
-                                            return;
-                                          }
-
                                           _trackSectorUsage(sektor.title.toLowerCase());
                                           
-                                          // Navigate to appropriate screen based on title
-                                          Widget targetScreen = const LayananScreen();
-                                          if (sektor.title.toLowerCase().contains('keluarga')) targetScreen = const LayananKeluargaScreen();
-                                          if (sektor.title.toLowerCase().contains('usaha')) targetScreen = const LayananUsahaScreen();
-                                          if (sektor.title.toLowerCase().contains('lingkungan')) targetScreen = const LayananLingkunganScreen();
-                                          
-                                          Navigator.push(context, MaterialPageRoute(builder: (_) => targetScreen));
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => GenericLayananSektorScreen(sektor: sektor),
+                                            ),
+                                          );
                                         },
                                       );
                                     },
@@ -1008,7 +1000,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     listenable: OpdService(),
                     builder: (context, _) {
                       final diskominfo = OpdService().getInstansiByKode('diskominfo');
-                      final dpmptsp = OpdService().getInstansiByKode('dpmpstp');
+                      final dpmptsp = OpdService().getInstansiByKode('dpmptsp');
                       final dkp3 = OpdService().getInstansiByKode('dkp3');
 
                       return Row(
@@ -1031,7 +1023,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fallbackIcon: Icons.store_rounded,
                             isMaintenance: dpmptsp != null && !dpmptsp.isActive,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDpmpstp()));
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDpmptsp()));
                             },
                           ),
                           const SizedBox(width: 16),

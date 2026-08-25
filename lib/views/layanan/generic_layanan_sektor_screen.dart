@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/views/instansi/mocilegit_webview_screen.dart';
-import 'package:mobile/widgets/guest_gatekeeper.dart';
-import 'package:mobile/views/informasi/maintenance_screen.dart';
-import 'package:mobile/services/opd_service.dart';
-import 'package:mobile/models/layanan_model.dart';
-import 'package:mobile/models/sektor_model.dart';
+import '../instansi/mocilegit_webview_screen.dart';
+import '../../widgets/guest_gatekeeper.dart';
+import '../informasi/maintenance_screen.dart';
+import '../../services/opd_service.dart';
+import '../../models/layanan_model.dart';
+import '../../models/sektor_model.dart';
 
-class LayananKeluargaScreen extends StatelessWidget {
-  const LayananKeluargaScreen({super.key});
+class GenericLayananSektorScreen extends StatelessWidget {
+  final SektorModel sektor;
+
+  const GenericLayananSektorScreen({
+    super.key,
+    required this.sektor,
+  });
 
   void _tampilkanDialogRedireksi(BuildContext context, String judulLayanan, String urlPortal) {
     const Color primaryColor = Color(0xFF123457);
@@ -57,15 +62,12 @@ class LayananKeluargaScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // TOMBOL LANJUTKAN NAVY
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context); // Tutup Dialog
-
-                    // NAVIGASI LANGSUNG KE FORMULIR DIGITAL IN-APP WEBVIEW MOCILEGIT
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -101,112 +103,105 @@ class LayananKeluargaScreen extends StatelessWidget {
     );
   }
 
-  final List<Map<String, dynamic>> _subLayanan = const [
-    {
-      'title': 'KTP-el',
-      'desc': 'Layanan Kado Terindah',
-      'icon': Icons.badge_rounded,
-      'subjudul': 'Layanan Kado Terindah - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Kado Terindah (Penerbitan KTP-el) untuk pencetakan ulang KTP-el karena rusak/hilang, pembaharuan data elemen KTP, dan registrasi Identitas Kependudukan Digital (IKD).',
-      'persyaratan': [
-        'Fotokopi Kartu Keluarga (KK) Terbaru',
-        'KTP Lama (Jika Rusak / Ganti Elemen)',
-        'Surat Keterangan Kehilangan dari Kepolisian (Jika KTP Hilang)',
-        'Foto Bukti Fisik KTP Rusak (Jika Rusak)',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/pengajuan/ktp',
-    },
-    {
-      'title': 'Kartu Keluarga (KK)',
-      'desc': 'Layanan Kami Hebat',
-      'icon': Icons.family_restroom_rounded,
-      'subjudul': 'Layanan Kami Hebat - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Kami Hebat (Penerbitan KK) untuk keluarga baru, penambahan anggota keluarga (kelahiran), atau pengurangan anggota keluarga.',
-      'persyaratan': [
-        'Surat Pengantar RT / RW / Kelurahan',
-        'Buku Nikah / Kutipan Akta Perkawinan (Orang Tua)',
-        'Surat Keterangan Lahir (Untuk Penambahan Anggota)',
-        'KK Lama (Jika ada pembaharuan data)',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/pengajuan/kk',
-    },
-    {
-      'title': 'Kartu Identitas Anak (KIA)',
-      'desc': 'Layanan Kita Cerdas',
-      'icon': Icons.child_care_rounded,
-      'subjudul': 'Layanan Kita Cerdas - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Kita Cerdas (Penerbitan KIA) merupakan identitas resmi anak usia 0 hingga kurang dari 17 tahun untuk memenuhi hak kependudukan anak.',
-      'persyaratan': [
-        'Fotokopi Akta Kelahiran Anak',
-        'Fotokopi Kartu Keluarga (KK) Orang Tua',
-        'Fotokopi KTP Kedua Orang Tua',
-        'Pas Foto Anak Ukuran 2x3 (Untuk Anak Usia > 5 Tahun)',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/pengajuan/kia',
-    },
-    {
-      'title': 'Pindah Datang',
-      'desc': 'Patepang Sono',
-      'icon': Icons.move_to_inbox_rounded,
-      'subjudul': 'Patepang Sono - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Patepang Sono (Pengurusan Surat Keterangan Pindah Datang WNI / SKPWNI) untuk kepindahan domisili antar kelurahan, kecamatan, kota, maupun provinsi.',
-      'persyaratan': [
-        'Kartu Keluarga (KK) Asli & Fotokopi',
-        'KTP-el Asli yang Berpindah',
-        'Alamat Lengkap Tujuan Pindah (RT/RW, Desa, Kec, Kab/Kota)',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/pengajuan/pindah',
-    },
-    {
-      'title': 'Akta Kelahiran',
-      'desc': 'Layanan Ananda Sehat',
-      'icon': Icons.child_friendly_rounded,
-      'subjudul': 'Layanan Ananda Sehat - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Ananda Sehat (Penerbitan Akta Kelahiran) resmi dari Disdukcapil sebagai bukti sah status hukum kependudukan anak di Kota Sukabumi.',
-      'persyaratan': [
-        'Surat Keterangan Lahir dari Bidan / Rumah Sakit',
-        'Fotokopi Buku Nikah / Akta Perkawinan Orang Tua',
-        'Fotokopi Kartu Keluarga (KK)',
-        'Fotokopi KTP Orang Tua & 2 Orang Saksi',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/pengajuan/kelahiran',
-    },
-    {
-      'title': 'Akta Kematian',
-      'desc': 'Layanan Kemboja Sari',
-      'icon': Icons.description_rounded,
-      'subjudul': 'Layanan Kemboja Sari - Disdukcapil',
-      'deskripsiTentang':
-          'Layanan Kemboja Sari (Penerbitan Akta Kematian) sebagai bukti sah kematian warga untuk kepengurusan ahli waris, perbankan, dan pemutakhiran data KK.',
-      'persyaratan': [
-        'Surat Keterangan Kematian dari Dokter / Rumah Sakit / Kelurahan',
-        'Kartu Keluarga (KK) Asli Almarhum/Almarhumah',
-        'KTP-el Asli Almarhum/Almarhumah',
-        'Fotokopi KTP Pelapor & 2 Saksi Kematian',
-      ],
-      'urlPortal': 'https://mocilegit.sukabumikota.go.id/dashboard',
-    },
-  ];
+  IconData _mapIcon(String? iconName) {
+    switch (iconName) {
+      case 'badge_outlined':
+        return Icons.badge_rounded;
+      case 'family_restroom_outlined':
+        return Icons.family_restroom_rounded;
+      case 'child_care_outlined':
+        return Icons.child_care_rounded;
+      case 'child_friendly_outlined':
+        return Icons.child_friendly_rounded;
+      case 'description_outlined':
+        return Icons.description_rounded;
+      case 'move_to_inbox_outlined':
+        return Icons.move_to_inbox_rounded;
+      case 'school_outlined':
+        return Icons.school_rounded;
+      case 'store_outlined':
+        return Icons.storefront_rounded;
+      case 'home_work_outlined':
+        return Icons.home_work_rounded;
+      case 'directions_car_outlined':
+        return Icons.directions_car_rounded;
+      case 'local_hospital_outlined':
+        return Icons.local_hospital_rounded;
+      case 'warning_amber_outlined':
+        return Icons.warning_amber_rounded;
+      case 'work_outlined':
+        return Icons.work_rounded;
+      case 'gavel_outlined':
+        return Icons.gavel_rounded;
+      case 'sports_soccer_outlined':
+        return Icons.sports_soccer_rounded;
+      case 'receipt_long_outlined':
+        return Icons.receipt_long_rounded;
+      case 'real_estate_agent_outlined':
+        return Icons.real_estate_agent_rounded;
+      case 'print_outlined':
+        return Icons.print_rounded;
+      case 'pets_outlined':
+        return Icons.pets_rounded;
+      case 'medical_services_outlined':
+        return Icons.medical_services_rounded;
+      case 'grass_outlined':
+        return Icons.grass_rounded;
+      case 'workspace_premium_outlined':
+        return Icons.workspace_premium_rounded;
+      case 'directions_bus_outlined':
+        return Icons.directions_bus_rounded;
+      case 'attractions_outlined':
+        return Icons.attractions_rounded;
+      default:
+        return Icons.help_outline_rounded;
+    }
+  }
+
+  IconData _mapSektorIcon(String? iconName) {
+    switch (iconName) {
+      case 'family_restroom_rounded':
+        return Icons.family_restroom_rounded;
+      case 'school_rounded':
+        return Icons.school_rounded;
+      case 'store_rounded':
+        return Icons.store_rounded;
+      case 'home_work_rounded':
+        return Icons.home_work_rounded;
+      case 'directions_car_rounded':
+        return Icons.directions_car_rounded;
+      case 'local_hospital_rounded':
+        return Icons.local_hospital_rounded;
+      case 'warning_amber_rounded':
+        return Icons.warning_amber_rounded;
+      case 'work_rounded':
+        return Icons.work_rounded;
+      case 'sports_soccer_rounded':
+        return Icons.sports_soccer_rounded;
+      case 'gavel_rounded':
+        return Icons.gavel_rounded;
+      default:
+        return Icons.grid_view_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFF123457);
+    const Color accentColor = Color(0xFFFFAC33);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF123457),
+        backgroundColor: primaryColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Sektor Keluarga',
-          style: TextStyle(
+        title: Text(
+          'Sektor ${sektor.title}',
+          style: const TextStyle(
             color: Colors.white,
             fontFamily: 'Poppins',
             fontWeight: FontWeight.bold,
@@ -218,11 +213,11 @@ class LayananKeluargaScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER HERO KELUARGA
+            // HEADER HERO SEKTOR
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
-              color: const Color(0xFF123457),
+              color: primaryColor,
               child: Row(
                 children: [
                   Container(
@@ -232,32 +227,32 @@ class LayananKeluargaScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFFAC33), width: 1.5),
+                      border: Border.all(color: accentColor, width: 1.5),
                     ),
-                    child: const Icon(
-                      Icons.family_restroom_rounded,
-                      color: Color(0xFF123457),
+                    child: Icon(
+                      _mapSektorIcon(sektor.iconName),
+                      color: primaryColor,
                       size: 38,
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'KELUARGA',
-                          style: TextStyle(
-                            color: Color(0xFFFFAC33),
+                          sektor.title.toUpperCase(),
+                          style: const TextStyle(
+                            color: accentColor,
                             fontSize: 18,
                             fontFamily: 'Poppins',
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Layanan Administrasi Kependudukan, Pernikahan, KK, KTP & Akta Sipil',
-                          style: TextStyle(
+                          sektor.desc,
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
                             fontFamily: 'Poppins',
@@ -275,10 +270,10 @@ class LayananKeluargaScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Pilih Jenis Layanan Keluarga',
-                    style: TextStyle(
-                      color: Color(0xFF123457),
+                  Text(
+                    'Pilih Jenis Layanan ${sektor.title}',
+                    style: const TextStyle(
+                      color: primaryColor,
                       fontSize: 16.5,
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.bold,
@@ -286,7 +281,7 @@ class LayananKeluargaScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Setiap pengajuan dapat dipantau statusnya secara real-time melalui sistem digital.',
+                    'Layanan terpadu yang dapat diakses secara digital melalui satu pintu.',
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 12.5,
@@ -295,19 +290,18 @@ class LayananKeluargaScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // GRID SUB-LAYANAN KELUARGA (DYNAMIC & REAL-TIME 3-LAYER SYNC)
                   ListenableBuilder(
                     listenable: OpdService(),
                     builder: (context, _) {
-                      final allLayanan = OpdService().getLayananBySektor('Keluarga');
-                      final instansi = OpdService().getInstansiByKode('disdukcapil');
-                      final sektor = OpdService().getSektorList().firstWhere(
-                        (s) => s.title.toLowerCase().contains('keluarga'),
-                        orElse: () => SektorModel(id: '', title: 'Keluarga', imagePath: '', desc: '', iconName: ''),
-                      );
+                      final allLayanan = OpdService().getLayananBySektor(sektor.title);
                       
                       if (allLayanan.isEmpty) {
-                        return const Center(child: Text('Belum ada layanan tersedia di sektor ini.'));
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Text('Belum ada layanan tersedia di sektor ini.', style: TextStyle(fontFamily: 'Poppins', color: Colors.grey)),
+                          ),
+                        );
                       }
 
                       return GridView.builder(
@@ -322,19 +316,10 @@ class LayananKeluargaScreen extends StatelessWidget {
                         ),
                         itemBuilder: (context, index) {
                           final item = allLayanan[index];
-                          // CEK 3 LAPIS: Sektor, Instansi, atau Layanan spesifik
+                          final instansi = OpdService().getInstansiByKode(item.kodeInstansi);
                           final bool isMaintenance = !sektor.isActive || 
                                                      (instansi != null && !instansi.isActive) || 
                                                      !item.isActive;
-
-                          // Map icon name string to IconData
-                          IconData displayIcon = Icons.help_outline_rounded;
-                          if (item.iconName == 'badge_outlined') displayIcon = Icons.badge_rounded;
-                          if (item.iconName == 'family_restroom_outlined') displayIcon = Icons.family_restroom_rounded;
-                          if (item.iconName == 'child_care_outlined') displayIcon = Icons.child_care_rounded;
-                          if (item.iconName == 'child_friendly_outlined') displayIcon = Icons.child_friendly_rounded;
-                          if (item.iconName == 'description_outlined') displayIcon = Icons.description_rounded;
-                          if (item.iconName == 'move_to_inbox_outlined') displayIcon = Icons.move_to_inbox_rounded;
 
                           return GestureDetector(
                             onTap: () {
@@ -347,7 +332,7 @@ class LayananKeluargaScreen extends StatelessWidget {
                                       MaterialPageRoute(
                                         builder: (context) => MaintenanceScreen(
                                           title: item.rawTitle,
-                                          category: 'Layanan Kependudukan (Disdukcapil)',
+                                          category: 'Layanan ${sektor.title} (${item.kodeInstansi.toUpperCase()})',
                                         ),
                                       ),
                                     );
@@ -370,7 +355,7 @@ class LayananKeluargaScreen extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFF123457), width: 1.5),
+                                  border: Border.all(color: primaryColor, width: 1.5),
                                   boxShadow: const [
                                     BoxShadow(
                                       color: Color(0x20000000),
@@ -383,11 +368,10 @@ class LayananKeluargaScreen extends StatelessWidget {
                                   children: [
                                     Column(
                                       children: [
-                                        // BAGIAN ATAS (NAVY DENGAN IKON EMAS)
                                         Expanded(
                                           child: Container(
                                             decoration: const BoxDecoration(
-                                              color: Color(0xFF123457),
+                                              color: primaryColor,
                                               borderRadius: BorderRadius.only(
                                                 topLeft: Radius.circular(10),
                                                 topRight: Radius.circular(10),
@@ -395,15 +379,13 @@ class LayananKeluargaScreen extends StatelessWidget {
                                             ),
                                             child: Center(
                                               child: Icon(
-                                                displayIcon,
+                                                _mapIcon(item.iconName),
                                                 color: const Color(0xFFE8A33D),
                                                 size: 58,
                                               ),
                                             ),
                                           ),
                                         ),
-
-                                        // BAGIAN BAWAH (ABU-ABU SILVER DENGAN TINGGI PRESISI 68PX)
                                         Container(
                                           width: double.infinity,
                                           height: 68,
@@ -422,7 +404,7 @@ class LayananKeluargaScreen extends StatelessWidget {
                                               Text(
                                                 item.rawTitle,
                                                 style: const TextStyle(
-                                                  color: Color(0xFF123457),
+                                                  color: primaryColor,
                                                   fontSize: 13.5,
                                                   fontWeight: FontWeight.bold,
                                                   fontFamily: 'Poppins',
@@ -446,8 +428,6 @@ class LayananKeluargaScreen extends StatelessWidget {
                                         ),
                                       ],
                                     ),
-                                    
-                                    // OVERLAY LABEL MAINTENANCE
                                     if (isMaintenance)
                                       Positioned(
                                         top: 10,
@@ -478,75 +458,6 @@ class LayananKeluargaScreen extends StatelessWidget {
                         },
                       );
                     },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // CATATAN PENTING CONTAINER
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF123457),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.info_outline_rounded, color: Color(0xFFE8A33D), size: 24),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Setiap pengajuan dapat dipantau statusnya secara real-time melalui menu riwayat.',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontFamily: 'Poppins',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // TOMBOL JELAJAHI SEMUA LAYANAN MOCILEGIT
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        GuestGatekeeper.checkAccess(
-                          context,
-                          onGranted: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const MocilegitWebviewScreen(
-                                  title: 'Katalog Layanan Mocilegit',
-                                  url: 'https://mocilegit.sukabumikota.go.id/pengajuan',
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE8A33D),
-                        foregroundColor: const Color(0xFF123457),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      icon: const Icon(Icons.explore_outlined, size: 20),
-                      label: const Text(
-                        'Jelajahi Semua Layanan (Mocilegit)',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 20),
                 ],

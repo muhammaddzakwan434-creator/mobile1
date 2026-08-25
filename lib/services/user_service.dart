@@ -82,6 +82,7 @@ class UserService extends ChangeNotifier {
   Future<void> init() async {
     await _loadFromLocal();
     await fetchWargaFromApi();
+    await cleanupDuplicateUsers();
   }
 
   Future<void> fetchWargaFromApi() async {
@@ -137,8 +138,8 @@ class UserService extends ChangeNotifier {
         phoneNumber: data['phone'] ?? '-',
         status: data['status'] ?? 'Terverifikasi Akun Warga',
         joinedDate: data['joined_date'] ?? '-',
-        id: data['user_id'] ?? _generateUniqueId(),
-        profileImagePath: data['profile_image_path'] ?? '',
+        id: data['user_id'] ?? _generateConsistentId(data['email'] ?? '-'),
+        profileImagePath: data['profile_photo'] ?? data['profile_image_path'] ?? '',
       );
     } else {
       _setGuestMode();
@@ -189,7 +190,7 @@ class UserService extends ChangeNotifier {
         phoneNumber: found['nikOrPhone'] ?? '-',
         status: 'Terverifikasi (Akun Warga)',
         joinedDate: dateStr,
-        id: _generateUniqueId(),
+        id: _generateConsistentId(found['email'] ?? input),
         profileImagePath: '',
       );
 
@@ -243,7 +244,7 @@ class UserService extends ChangeNotifier {
           phoneNumber: nikOrPhone ?? '-',
           status: 'Terverifikasi Akun Warga',
           joinedDate: dateStr,
-          id: _generateUniqueId(),
+          id: _generateConsistentId(email.trim().toLowerCase()),
           profileImagePath: '',
         );
 
@@ -279,7 +280,7 @@ class UserService extends ChangeNotifier {
           phoneNumber: '-',
           status: 'Menunggu Verifikasi OTP',
           joinedDate: dateStr,
-          id: _generateUniqueId(),
+          id: _generateConsistentId(firebaseUser.email ?? email),
           profileImagePath: firebaseUser.photoURL ?? '',
         );
 
@@ -342,7 +343,7 @@ class UserService extends ChangeNotifier {
           phoneNumber: firebaseUser.phoneNumber ?? '-',
           status: 'Terverifikasi (Google Auth Resmi)',
           joinedDate: dateStr,
-          id: _generateUniqueId(),
+          id: _generateConsistentId(firebaseUser.email ?? '-'),
           profileImagePath: firebaseUser.photoURL ?? '',
         );
 
@@ -369,7 +370,7 @@ class UserService extends ChangeNotifier {
       phoneNumber: '-',
       status: 'Terverifikasi (Google OAuth API)',
       joinedDate: dateStr,
-      id: _generateUniqueId(),
+      id: _generateConsistentId(googleEmail),
       profileImagePath: '',
     );
 
@@ -389,7 +390,7 @@ class UserService extends ChangeNotifier {
       phoneNumber: '-',
       status: 'Terverifikasi (SSO Identity Provider)',
       joinedDate: dateStr,
-      id: _generateUniqueId(),
+      id: _generateConsistentId('$ssoUsername@sukabumikota.go.id'),
       profileImagePath: '',
     );
 
@@ -415,15 +416,55 @@ class UserService extends ChangeNotifier {
     await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
-  String _generateUniqueId() {
-    final random = Random();
-    final int code = 100000 + random.nextInt(900000);
+  String _generateConsistentId(String email) {
+    if (email == '-' || email.isEmpty) return 'SOA-UNKNOWN';
+    
+    // Hash sederhana dari email untuk menghasilkan angka 6 digit yang tetap
+    int hash = 0;
+    for (var i = 0; i < email.length; i++) {
+      hash = email.codeUnitAt(i) + ((hash << 5) - hash);
+    }
+    final int code = 100000 + (hash.abs() % 900000);
     return 'SOA-$code';
   }
 
   String _getBulan(int mon) {
     const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     return bulan[mon - 1];
+  }
+
+  /// --------------------------------------------------------------------------
+  /// FUNGSI 3: Pembersihan Data Ganda di Firestore
+  /// --------------------------------------------------------------------------
+  Future<void> cleanupDuplicateUsers() async {
+    try {
+      final snapshot = await _db.collection('warga').get();
+      final Map<String, List<String>> emailToIds = {};
+
+      for (var doc in snapshot.docs) {
+        final email = doc.data()['email']?.toString();
+        if (email != null && email != '-') {
+          emailToIds.putIfAbsent(email, () => []).add(doc.id);
+        }
+      }
+
+      for (var entry in emailToIds.entries) {
+        final email = entry.key;
+        final ids = entry.value;
+
+        if (ids.length > 1) {
+          final correctId = _generateConsistentId(email);
+          for (var id in ids) {
+            if (id != correctId) {
+              await _db.collection('warga').doc(id).delete();
+              debugPrint('Deleted duplicate user: $id ($email)');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Cleanup Error: $e');
+    }
   }
 
   // Simpan data ke Shared Preferences
@@ -552,8 +593,27 @@ class UserService extends ChangeNotifier {
     if (index != -1) {
       final currentStatus = _registeredUsers[index]['status'] ?? 'ACTIVE';
       final isCurrentlyActive = (currentStatus == 'ACTIVE' || currentStatus.contains('IKD') || currentStatus.contains('SSO') || currentStatus == 'TERVERIFIKASI');
-      _registeredUsers[index]['status'] = isCurrentlyActive ? 'DITANGGUHKAN' : 'ACTIVE';
+      final newStatus = isCurrentlyActive ? 'DITANGGUHKAN' : 'ACTIVE';
+      
+      _registeredUsers[index]['status'] = newStatus;
       await _saveRegisteredUsersToLocal();
+
+      // 1. SINKRONISASI KE FIRESTORE (Untuk UI Real-time)
+      try {
+        await _db.collection('warga').doc(id).update({
+          'status': newStatus,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Firestore Suspend Sync Error: $e');
+      }
+
+      // 2. SINKRONISASI KE BACKEND API (MySQL)
+      try {
+        await ApiService.patch('warga/$id/toggle-status', {});
+      } catch (e) {
+        debugPrint('Backend Suspend Sync Error: $e');
+      }
     }
   }
 

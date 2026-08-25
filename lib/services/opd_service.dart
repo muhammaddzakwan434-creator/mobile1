@@ -14,6 +14,7 @@ import '../models/instansi_model.dart';
 import '../models/layanan_model.dart';
 import '../models/custom_field_config.dart';
 import '../models/sektor_model.dart';
+import '../models/global_search_model.dart';
 
 /// Kelas Service Master Pengelola Katalog Instansi OPD, Layanan Publik, & Sektor
 class OpdService extends ChangeNotifier {
@@ -160,6 +161,102 @@ class OpdService extends ChangeNotifier {
   List<InstansiModel> get instansiList => List.unmodifiable(_instansiList);
   List<LayananModel> get layananList => List.unmodifiable(_layananList);
   List<SektorModel> get sektorList => List.unmodifiable(_sektorList);
+
+  // Data FAQ Terpadu untuk Pencarian & Bot
+  final Map<String, String> faqData = {
+    'Bagaimana cara membuat pengaduan?':
+        'Untuk membuat pengaduan, Anda bisa masuk ke menu "Layanan" di navigasi bawah, pilih kategori layanan yang sesuai, lalu isi formulir pengaduan dengan lengkap.',
+    'Bagaimana cara melihat status pengaduan saya?':
+        'Status pengaduan dapat dipantau melalui menu "Log Aktivitas" di halaman profil Anda. Anda akan mendapatkan notifikasi real-time.',
+    'Berapa lama pengaduan diproses?':
+        'Proses pengaduan dan permohonan layanan biasanya memakan waktu 1-3 hari kerja tergantung pada tingkat kompleksitas masalah.',
+    'Apa saja layanan yang tersedia?':
+        'Saat ini tersedia layanan Pengaduan Infrastruktur, Layanan Dukcapil Digital, Informasi Cuaca, Berita Kota Sukabumi, dan Integrasi SSO IKD.',
+    'Di mana lokasi kantor pelayanan?':
+        'Kantor Pusat Layanan terpadu berada di Balai Kota Sukabumi, Jl. R. Syamsudin, S.H. No.25.',
+    'Mengapa pengaduan saya belum ditindaklanjuti?':
+        'Mohon pastikan data yang diinput sudah lengkap. Jika sudah lebih dari 3 hari kerja, Anda bisa menggunakan fitur "Hubungi Admin".',
+  };
+
+  /// --------------------------------------------------------------------------
+  /// FUNGSI PENCARIAN GLOBAL (UNIVERSAL SEARCH ENGINE)
+  /// --------------------------------------------------------------------------
+  List<GlobalSearchResult> performGlobalSearch(BuildContext context, String query) {
+    final List<GlobalSearchResult> results = [];
+    final q = query.toLowerCase().trim();
+    if (q.isEmpty) return results;
+
+    // 1. CARI DI INSTANSI
+    for (var item in _instansiList) {
+      if (item.namaSingkat.toLowerCase().contains(q) || item.namaLengkap.toLowerCase().contains(q)) {
+        results.add(GlobalSearchResult(
+          title: item.namaSingkat,
+          subtitle: item.namaLengkap,
+          type: SearchResultType.instansi,
+          icon: Icons.account_balance_rounded,
+          onTap: () {
+            // Logika navigasi ditangani di delegate untuk kemudahan build context
+          },
+        ));
+      }
+    }
+
+    // 2. CARI DI LAYANAN
+    for (var item in _layananList) {
+      if (item.judulLayanan.toLowerCase().contains(q) || item.deskripsi.toLowerCase().contains(q)) {
+        results.add(GlobalSearchResult(
+          title: item.judulLayanan,
+          subtitle: 'Layanan di ${item.sektor}',
+          type: SearchResultType.layanan,
+          icon: Icons.assignment_rounded,
+          onTap: () {},
+        ));
+      }
+    }
+
+    // 3. CARI DI SEKTOR
+    for (var item in _sektorList) {
+      if (item.title.toLowerCase().contains(q) || item.desc.toLowerCase().contains(q)) {
+        results.add(GlobalSearchResult(
+          title: 'Sektor ${item.title}',
+          subtitle: item.desc,
+          type: SearchResultType.sektor,
+          icon: Icons.grid_view_rounded,
+          onTap: () {},
+        ));
+      }
+    }
+
+    // 4. CARI DI PUSAT BANTUAN (FAQ)
+    faqData.forEach((question, answer) {
+      if (question.toLowerCase().contains(q) || answer.toLowerCase().contains(q)) {
+        results.add(GlobalSearchResult(
+          title: question,
+          subtitle: 'Pusat Bantuan / FAQ',
+          type: SearchResultType.bantuan,
+          icon: Icons.help_outline_rounded,
+          onTap: () {},
+        ));
+      }
+    });
+
+    // 5. CARI DI INFORMASI APLIKASI (TENTANG)
+    const aboutKeywords = ['pengembang', 'developer', 'versi', 'tentang', 'deskripsi', 'tujuan', 'sukabumi city one access'];
+    for (var kw in aboutKeywords) {
+      if (kw.contains(q)) {
+        results.add(GlobalSearchResult(
+          title: 'Tentang Aplikasi',
+          subtitle: 'Informasi pengembang dan tujuan aplikasi',
+          type: SearchResultType.tentang,
+          icon: Icons.info_outline_rounded,
+          onTap: () {},
+        ));
+        break;
+      }
+    }
+
+    return results;
+  }
 
   /// --------------------------------------------------------------------------
   /// FUNGSI INSIALISASI SEED DATA AWAL (SEKTOR, INSTANSI, & LAYANAN PUBLIK)

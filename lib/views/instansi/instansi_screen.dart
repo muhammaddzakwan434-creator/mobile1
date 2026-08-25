@@ -3,7 +3,7 @@ import 'package:mobile/services/opd_service.dart';
 import 'package:mobile/widgets/smart_image.dart';
 import 'package:mobile/views/instansi/info_disdukcapil.dart';
 import 'package:mobile/views/instansi/info_diskominfo.dart';
-import 'package:mobile/views/instansi/info_dpmpstp.dart';
+import 'package:mobile/views/instansi/info_dpmptsp.dart';
 import 'package:mobile/views/instansi/info_dkp3.dart';
 import 'package:mobile/views/instansi/info_bpkpd.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
@@ -226,10 +226,10 @@ class _InstansiScreenState extends State<InstansiScreen> {
                                 context,
                                 MaterialPageRoute(builder: (context) => const InfoDiskominfo()),
                               );
-                            } else if (kode == 'dpmpstp') {
+                            } else if (kode == 'dpmptsp') {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const InfoDpmpstp()),
+                                MaterialPageRoute(builder: (context) => const InfoDpmptsp()),
                               );
                             } else if (kode == 'dkp3') {
                               Navigator.push(
