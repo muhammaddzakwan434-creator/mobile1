@@ -273,4 +273,38 @@ Route::post('/feedback', function (Request $request) {
     }
 });
 
+Route::patch('/feedback/{id}/reply', function (Request $request, $id) {
+    try {
+        $validated = $request->validate([
+            'reply' => 'required|string',
+        ]);
+
+        \DB::table('feedbacks')->where('id', $id)->update([
+            'reply' => $validated['reply'],
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['status' => 'success']);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
+Route::patch('/feedback/{id}/reply', function (Request $request, $id) {
+    try {
+        $validated = $request->validate([
+            'reply' => 'required|string',
+        ]);
+
+        \DB::table('feedbacks')->where('id', $id)->update([
+            'reply' => $validated['reply'],
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['status' => 'success']);
+    } catch (\Throwable $e) {
+        return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+    }
+});
+
 

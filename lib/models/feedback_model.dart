@@ -12,6 +12,7 @@ class FeedbackModel {
   final int rating;      // Skor Penilaian Bintang (1 - 5)
   final String factor;   // Faktor Utama (Kecepatan, Kemudahan, Keramahan, dll)
   final String reason;   // Ulasan / Alasan Masukan Warga
+  final String? reply;   // Tanggapan Resmi Admin
   final DateTime date;   // Tanggal Ulasan Dikirim
 
   FeedbackModel({
@@ -21,6 +22,7 @@ class FeedbackModel {
     required this.rating,
     required this.factor,
     required this.reason,
+    this.reply,
     required this.date,
   });
 
@@ -32,6 +34,7 @@ class FeedbackModel {
       rating: json['rating'] ?? 0,
       factor: json['factor'] ?? '',
       reason: json['reason'] ?? '',
+      reply: json['reply'],
       date: DateTime.parse(json['created_at'] ?? json['date'] ?? DateTime.now().toString()),
     );
   }

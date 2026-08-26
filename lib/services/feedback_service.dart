@@ -47,6 +47,7 @@ class FeedbackService {
           rating: data['rating'] ?? 5,
           factor: data['factor'] ?? 'Umum',
           reason: data['reason'] ?? '',
+          reply: data['reply'],
           date: data['date'] != null 
               ? (data['date'] as Timestamp).toDate() 
               : DateTime.now(),
@@ -72,6 +73,7 @@ class FeedbackService {
           rating: data['rating'] ?? 5,
           factor: data['factor'] ?? 'Umum',
           reason: data['reason'] ?? '',
+          reply: data['reply'],
           date: data['date'] != null 
               ? (data['date'] as Timestamp).toDate() 
               : DateTime.now(),
@@ -155,5 +157,26 @@ class FeedbackService {
 
     final response = await ApiService.post('feedback', payload);
     return response.statusCode == 200 || response.statusCode == 201;
+  }
+
+  // FUNGSI 4: Admin menanggapi laporan
+  Future<bool> sendReply(String feedbackId, String reply) async {
+    try {
+      // Step A: Update di Firestore
+      await _firestore.collection('feedback').doc(feedbackId).update({
+        'reply': reply,
+        'replied_at': FieldValue.serverTimestamp(),
+      });
+
+      // Step B: Update di Backend REST API (MySQL)
+      final response = await ApiService.patch('feedback/$feedbackId/reply', {
+        'reply': reply,
+      });
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error sending reply: $e');
+      return false;
+    }
   }
 }

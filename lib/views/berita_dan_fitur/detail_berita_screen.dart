@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/views/instansi/info_diskominfo.dart';
+import 'package:mobile/views/instansi/generic_info_instansi_screen.dart';
+import 'package:mobile/services/opd_service.dart';
 
 class DetailBeritaScreen extends StatelessWidget {
   final String judul;
@@ -215,10 +216,13 @@ Melalui portal informasi resmi Sukabumi One Access, masyarakat dapat memantau pe
                           height: 40,
                           child: ElevatedButton(
                             onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const InfoDiskominfo()),
-                              );
+                              final diskominfo = OpdService().getInstansiByKode('diskominfo');
+                              if (diskominfo != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => GenericInfoInstansiScreen(instansi: diskominfo)),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: accentColor,

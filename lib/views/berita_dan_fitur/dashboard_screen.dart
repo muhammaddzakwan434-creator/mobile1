@@ -4,9 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:mobile/services/api_service.dart';
 import 'package:mobile/views/instansi/instansi_screen.dart';
-import 'package:mobile/views/instansi/info_diskominfo.dart';
-import 'package:mobile/views/instansi/info_dpmptsp.dart';
-import 'package:mobile/views/instansi/info_dkp3.dart';
+import 'package:mobile/views/instansi/generic_info_instansi_screen.dart';
 import 'package:mobile/views/layanan/layanan_screen.dart';
 import 'package:mobile/views/layanan/generic_layanan_sektor_screen.dart';
 import 'package:mobile/views/berita_dan_fitur/detail_berita_screen.dart';
@@ -1012,7 +1010,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fallbackIcon: Icons.computer_rounded,
                             isMaintenance: diskominfo != null && !diskominfo.isActive,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDiskominfo()));
+                              if (diskominfo != null) {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => GenericInfoInstansiScreen(instansi: diskominfo)));
+                              }
                             },
                           ),
                           const SizedBox(width: 16),
@@ -1023,7 +1023,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fallbackIcon: Icons.store_rounded,
                             isMaintenance: dpmptsp != null && !dpmptsp.isActive,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDpmptsp()));
+                              if (dpmptsp != null) {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => GenericInfoInstansiScreen(instansi: dpmptsp)));
+                              }
                             },
                           ),
                           const SizedBox(width: 16),
@@ -1034,7 +1036,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fallbackIcon: Icons.grass_rounded,
                             isMaintenance: dkp3 != null && !dkp3.isActive,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDkp3()));
+                              if (dkp3 != null) {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => GenericInfoInstansiScreen(instansi: dkp3)));
+                              }
                             },
                           ),
                           const SizedBox(width: 6),

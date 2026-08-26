@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/services/opd_service.dart';
 import 'package:mobile/widgets/smart_image.dart';
-import 'package:mobile/views/instansi/info_disdukcapil.dart';
-import 'package:mobile/views/instansi/info_diskominfo.dart';
-import 'package:mobile/views/instansi/info_dpmptsp.dart';
-import 'package:mobile/views/instansi/info_dkp3.dart';
-import 'package:mobile/views/instansi/info_bpkpd.dart';
+import 'package:mobile/views/instansi/generic_info_instansi_screen.dart';
 import 'package:mobile/widgets/guest_gatekeeper.dart';
 import 'package:mobile/views/informasi/maintenance_screen.dart';
 
@@ -215,40 +211,12 @@ class _InstansiScreenState extends State<InstansiScreen> {
                               return;
                             }
 
-                            final kode = item.kodeInstansi.toLowerCase();
-                            if (kode == 'disdukcapil') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const InfoDisdukcapil()),
-                              );
-                            } else if (kode == 'diskominfo') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const InfoDiskominfo()),
-                              );
-                            } else if (kode == 'dpmptsp') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const InfoDpmptsp()),
-                              );
-                            } else if (kode == 'dkp3') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const InfoDkp3()),
-                              );
-                            } else if (kode == 'bpkpd') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const InfoBpkpd()),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Membuka profil instansi ${item.namaLengkap}'),
-                                  backgroundColor: primaryColor,
-                                ),
-                              );
-                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => GenericInfoInstansiScreen(instansi: item),
+                              ),
+                            );
                           },
                         );
                       },

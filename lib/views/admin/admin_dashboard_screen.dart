@@ -1516,6 +1516,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
 
+                        // TAMPILAN TANGGAPAN ADMIN (JIKA ADA)
+                        if (fb.reply != null && fb.reply!.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2F7E2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF81C784).withOpacity(0.5)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 14),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Tanggapan Admin Sukabumi One Access:',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2E7D32),
+                                        fontFamily: 'Poppins',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  fb.reply!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF0F2942),
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         const SizedBox(height: 12),
 
                         // ACTION BUTTONS ADMIN
@@ -1523,18 +1566,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Tanggapan resmi berhasil dikirim ke warga!'),
-                                    backgroundColor: Color(0xFF0F2942),
-                                  ),
-                                );
-                              },
+                              onPressed: () => _showReplyFeedbackDialog(context, fb),
                               icon: const Icon(Icons.reply_rounded, size: 16, color: Color(0xFF0F2942)),
-                              label: const Text(
-                                'Tanggapi Laporan',
-                                style: TextStyle(
+                              label: Text(
+                                fb.reply != null && fb.reply!.isNotEmpty ? 'Edit Tanggapan' : 'Tanggapi Laporan',
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF0F2942),
@@ -1560,9 +1596,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // ===========================================================================
-  // VIEW 6: PROFIL SAYA VIEW
-  // ===========================================================================
   Widget _buildProfilSayaView(BuildContext context, Color sidebarBg, Color accentGold) {
+    // MENDAPATKAN DATA ADMIN YANG SEDANG LOGIN DARI SERVICE
+    AdminUserModel? currentAdmin;
+    try {
+      currentAdmin = _adminService.adminList.firstWhere((e) => e.id == _currentAdminId);
+    } catch (_) {}
+
+    if (currentAdmin == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1607,9 +1651,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             if (isMobile) {
               return Column(
                 children: [
-                  _buildProfilLeftCard(accentGold),
+                  _buildProfilLeftCard(currentAdmin!, accentGold),
                   const SizedBox(height: 20),
-                  _buildProfilRightInfoCard(context, sidebarBg),
+                  _buildProfilRightInfoCard(context, currentAdmin, sidebarBg),
                 ],
               );
             }
@@ -1617,9 +1661,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 280, child: _buildProfilLeftCard(accentGold)),
+                SizedBox(width: 280, child: _buildProfilLeftCard(currentAdmin!, accentGold)),
                 const SizedBox(width: 24),
-                Expanded(child: _buildProfilRightInfoCard(context, sidebarBg)),
+                Expanded(child: _buildProfilRightInfoCard(context, currentAdmin, sidebarBg)),
               ],
             );
           },
@@ -1628,7 +1672,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildProfilLeftCard(Color accentGold) {
+  Widget _buildProfilLeftCard(AdminUserModel admin, Color accentGold) {
+    final dateStr = DateFormat('d MMMM yyyy').format(admin.createdAt);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1649,7 +1695,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   color: Color(0xFFE8A33D),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person_rounded, color: Colors.white, size: 54),
+                child: Center(
+                  child: Text(
+                    admin.nama.isNotEmpty ? admin.nama[0].toUpperCase() : 'A',
+                    style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: Colors.white, fontFamily: 'Poppins'),
+                  ),
+                ),
               ),
               Positioned(
                 bottom: 0,
@@ -1668,10 +1719,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 14),
 
-          const Text(
-            'SUPER ADMIN',
-            style: TextStyle(
-              fontSize: 18,
+          Text(
+            admin.nama.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: Color(0xFF0F2942),
               fontFamily: 'Poppins',
@@ -1684,9 +1736,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               color: const Color(0xFFFFF6E5),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              'Super Administrator',
-              style: TextStyle(
+            child: Text(
+              admin.role,
+              style: const TextStyle(
                 color: Color(0xFFE8A33D),
                 fontSize: 10.5,
                 fontWeight: FontWeight.bold,
@@ -1705,14 +1757,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.email_outlined, size: 16, color: Color(0xFF0F2942)),
-                    SizedBox(width: 8),
+                    const Icon(Icons.email_outlined, size: 16, color: Color(0xFF0F2942)),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'admin@sukabumi.go.id',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+                        admin.email,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1727,8 +1779,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Login Terakhir', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontFamily: 'Poppins')),
-                        const Text('4 Juni 2026, 11:22 WIB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins')),
+                        Text('Status Saat Ini', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontFamily: 'Poppins')),
+                        Text(admin.isOnline ? 'Online Sekarang' : 'Offline', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: admin.isOnline ? Colors.green : Colors.grey, fontFamily: 'Poppins')),
                       ],
                     ),
                   ],
@@ -1742,7 +1794,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Bergabung Sejak', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontFamily: 'Poppins')),
-                        const Text('4 Agustus 2024', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins')),
+                        Text(dateStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins')),
                       ],
                     ),
                   ],
@@ -1755,7 +1807,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildProfilRightInfoCard(BuildContext context, Color sidebarBg) {
+  Widget _buildProfilRightInfoCard(BuildContext context, AdminUserModel admin, Color sidebarBg) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -1781,9 +1833,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               OutlinedButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Fitur Edit Profil dibuka.')),
-                  );
+                  _showFormTambahAdminDialog(context, adminToEdit: admin);
                 },
                 icon: const Icon(Icons.edit_outlined, size: 14),
                 label: const Text('Edit Profil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
@@ -1801,21 +1851,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const Divider(height: 1),
           const SizedBox(height: 12),
 
-          _buildInfoRow(Icons.person_outline_rounded, 'Nama Lengkap', 'SOA'),
+          _buildInfoRow(Icons.person_outline_rounded, 'Nama Lengkap', admin.nama),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.person_pin_rounded, 'Username', 'superadmin'),
+          _buildInfoRow(Icons.person_pin_rounded, 'Username', '@${admin.username}'),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.email_outlined, 'Email', 'adminsukabumi.go.id'),
+          _buildInfoRow(Icons.email_outlined, 'Email Resmi', admin.email),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.phone_outlined, 'Nomor Telephon', '0812-5345-7786'),
+          _buildInfoRow(Icons.phone_outlined, 'Nomor WhatsApp', admin.whatsapp),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.shield_outlined, 'Role', 'Super Admin'),
+          _buildInfoRow(Icons.badge_outlined, 'NIP / ID Pegawai', admin.nip),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.account_balance_outlined, 'Instansi', 'Pemerintahan Kota Sukabumi'),
+          _buildInfoRow(Icons.account_balance_outlined, 'Instansi / Unit Kerja', admin.instansi),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.location_on_outlined, 'Alamat', 'Jl. Jendral Sudirman No.1'),
+          _buildInfoRow(Icons.shield_outlined, 'Role Otoritas', admin.role),
           const Divider(height: 24, color: Colors.black12),
-          _buildInfoRow(Icons.description_outlined, 'Deskripsi', 'Akun utama dengan akses penuh ke seluruh sistem'),
+          _buildInfoRow(Icons.location_on_outlined, 'Alamat', 'Kantor Pusat Pemerintahan Kota Sukabumi'),
+          const Divider(height: 24, color: Colors.black12),
+          _buildInfoRow(Icons.description_outlined, 'Deskripsi', 'Akses administrator aktif untuk pengelolaan sistem Sukabumi One Access.'),
         ],
       ),
     );
@@ -1868,11 +1920,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F2942)),
-                  onPressed: () => Navigator.pop(context),
-                  tooltip: 'Kembali ke Aplikasi Warga',
-                ),
                 const SizedBox(width: 8),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1893,16 +1940,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ],
                 ),
               ],
-            ),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_rounded, size: 16),
-              label: const Text('Kembali ke Aplikasi Warga', style: TextStyle(fontFamily: 'Poppins', fontSize: 12)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: sidebarBg,
-                side: BorderSide(color: sidebarBg),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
             ),
           ],
         ),
@@ -3308,6 +3345,102 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // DIALOG TANGGAPAN ADMIN UNTUK KRITIK & SARAN
+  void _showReplyFeedbackDialog(BuildContext context, FeedbackModel fb) {
+    final TextEditingController replyController = TextEditingController(text: fb.reply);
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.rate_review_rounded, color: Color(0xFF0F2942)),
+              const SizedBox(width: 10),
+              Text(
+                fb.reply != null && fb.reply!.isNotEmpty ? 'Edit Tanggapan' : 'Tanggapi Masukan',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pengirim: ${fb.userName}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, fontFamily: 'Poppins'),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  '"${fb.reason}"',
+                  style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54, fontFamily: 'Poppins'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tulis Tanggapan Resmi:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F2942), fontFamily: 'Poppins'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: replyController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Tulis pesan balasan di sini...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0F2942))),
+                ),
+                style: const TextStyle(fontSize: 13, fontFamily: 'Poppins'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(context),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey, fontFamily: 'Poppins')),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (replyController.text.trim().isEmpty) return;
+
+                      setModalState(() => isSubmitting = true);
+                      final success = await FeedbackService().sendReply(fb.id!, replyController.text.trim());
+                      setModalState(() => isSubmitting = false);
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(success ? 'Tanggapan berhasil dikirim!' : 'Gagal mengirim tanggapan. Silakan coba lagi.'),
+                            backgroundColor: success ? const Color(0xFF0F2942) : Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F2942),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: isSubmitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Kirim Tanggapan', style: TextStyle(color: Colors.white, fontFamily: 'Poppins', fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );

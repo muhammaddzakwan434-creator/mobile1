@@ -91,7 +91,9 @@ class _AdminImagePickerState extends State<AdminImagePicker> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        imageQuality: 50, // Lebih ringan
+        maxWidth: 500, // Cukup untuk ikon
+        maxHeight: 500,
       );
       if (photo != null && photo.path.isNotEmpty) {
         _simpanPathFoto('Kamera HP', photo.path);
@@ -108,7 +110,9 @@ class _AdminImagePickerState extends State<AdminImagePicker> {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: 50, // Lebih ringan
+        maxWidth: 500, // Cukup untuk ikon
+        maxHeight: 500,
       );
       if (image != null && image.path.isNotEmpty) {
         _simpanPathFoto('Galeri Foto', image.path);

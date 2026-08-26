@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile/models/sektor_model.dart';
 import 'package:mobile/services/opd_service.dart';
 import 'package:mobile/widgets/admin_image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class AdminFormSektorScreen extends StatefulWidget {
   final SektorModel? sektor;
@@ -41,13 +42,63 @@ class _AdminFormSektorScreenState extends State<AdminFormSektorScreen> {
     super.dispose();
   }
 
-  void _simpanSektor() {
+  void _simpanSektor() async {
     if (_formKey.currentState!.validate()) {
+      final ValueNotifier<double> uploadProgress = ValueNotifier(0);
+      String finalImagePath = _imagePathController.text.trim();
+      final bool needsUpload = !finalImagePath.startsWith('assets/') && !finalImagePath.startsWith('http');
+
+      // 1. Tampilkan Overlay Loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: ValueListenableBuilder<double>(
+              valueListenable: uploadProgress,
+              builder: (context, value, _) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      value: needsUpload && value > 0 ? value / 100 : null,
+                      color: const Color(0xFFE8A33D),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      needsUpload 
+                        ? 'Mengunggah: ${value.toStringAsFixed(0)}%' 
+                        : 'Menyimpan data...',
+                      style: const TextStyle(color: Color(0xFF123457), fontWeight: FontWeight.bold, fontFamily: 'Poppins', decoration: TextDecoration.none, fontSize: 14),
+                    ),
+                  ],
+                );
+              }
+            ),
+          ),
+        ),
+      );
+
+      // 2. Upload Gambar jika diperlukan
+      if (needsUpload) {
+        final task = _opdService.getUploadTask(finalImagePath);
+        if (task != null) {
+          task.snapshotEvents.listen((event) {
+            uploadProgress.value = 100 * (event.bytesTransferred / event.totalBytes);
+          });
+          
+          final snapshot = await task;
+          finalImagePath = await snapshot.ref.getDownloadURL();
+        }
+      }
+
       final newModel = SektorModel(
         id: isEdit ? widget.sektor!.id : DateTime.now().millisecondsSinceEpoch.toString(),
         title: _titleController.text.trim(),
         desc: _descController.text.trim(),
-        imagePath: _imagePathController.text.trim(),
+        imagePath: finalImagePath,
         iconName: 'category_rounded',
       );
 
@@ -57,17 +108,20 @@ class _AdminFormSektorScreenState extends State<AdminFormSektorScreen> {
         _opdService.addSektor(newModel);
       }
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEdit
-                ? 'Sektor "${newModel.title}" berhasil diperbarui!'
-                : 'Sektor baru "${newModel.title}" berhasil ditambahkan!',
+      if (mounted) {
+        Navigator.pop(context); // Tutup loading
+        Navigator.pop(context); // Kembali ke list
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isEdit
+                  ? 'Sektor "${newModel.title}" berhasil diperbarui!'
+                  : 'Sektor baru "${newModel.title}" berhasil ditambahkan!',
+            ),
+            backgroundColor: const Color(0xFF123457),
           ),
-          backgroundColor: const Color(0xFF123457),
-        ),
-      );
+        );
+      }
     }
   }
 

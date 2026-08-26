@@ -12,7 +12,7 @@ class _TermsAndPolicyScreenState extends State<TermsAndPolicyScreen> {
   // Map status ekspansi accordion
   final Map<String, bool> _expandedMap = {
     'Dasar Hukum': false,
-    'Data Pribadi Pengguna': true,
+    'Data Pribadi Pengguna': false,
     'Data Non-Pribadi Pengguna': false,
     'Cookies': false,
     'Bagaimana Kami Menggunakan Data': false,

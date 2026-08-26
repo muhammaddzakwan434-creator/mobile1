@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/opd_service.dart';
 import '../models/global_search_model.dart';
-import '../views/instansi/info_disdukcapil.dart';
-import '../views/instansi/info_diskominfo.dart';
-import '../views/instansi/info_dpmptsp.dart';
-import '../views/instansi/info_dkp3.dart';
-import '../views/instansi/info_bpkpd.dart';
+import '../views/instansi/generic_info_instansi_screen.dart';
 import '../views/layanan/layanan_screen.dart';
 import '../views/layanan/layanan_screen.dart';
 import '../views/layanan/generic_layanan_sektor_screen.dart';
@@ -136,16 +132,9 @@ class GlobalSearchDelegate extends SearchDelegate {
     switch (item.type) {
       case SearchResultType.instansi:
         final kode = item.title.toLowerCase();
-        if (kode == 'disdukcapil') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDisdukcapil()));
-        } else if (kode == 'diskominfo') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDiskominfo()));
-        } else if (kode == 'dpmptsp') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDpmptsp()));
-        } else if (kode == 'dkp3') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoDkp3()));
-        } else if (kode == 'bpkpd') {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const InfoBpkpd()));
+        final instansi = _opdService.getInstansiByKode(kode);
+        if (instansi != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => GenericInfoInstansiScreen(instansi: instansi)));
         }
         break;
       case SearchResultType.layanan:

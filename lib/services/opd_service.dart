@@ -1,13 +1,10 @@
-// =============================================================================
-// FILE: lib/services/opd_service.dart
-// FUNGSI: Service Master Pengelola Data OPD (Instansi, Layanan Publik, & Sektor)
-// PATTERN: Singleton Pattern & Reactive State Management (ChangeNotifier)
-// =============================================================================
-
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/instansi_model.dart';
@@ -26,56 +23,14 @@ class OpdService extends ChangeNotifier {
   OpdService._internal() {
     _initDefaultData();
     _loadSavedStatusLocal();
-    _fetchRealtimeDatabaseStatus();
     _listenToCloudStatus();
-
-    // Polling Realtime Database setiap 3 detik agar sync instan tanpa billing
-    Timer.periodic(const Duration(seconds: 3), (_) {
-      _fetchRealtimeDatabaseStatus();
-    });
+    _listenToCloudSektorMaster();
+    _listenToCloudInstansiMaster();
+    _listenToCloudLayananMaster();
   }
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  Future<void> _fetchRealtimeDatabaseStatus() async {
-    try {
-      final res = await http.get(Uri.parse('$_rtdbBaseUrl.json'));
-      if (res.statusCode == 200 && res.body != 'null') {
-        final dynamic decoded = json.decode(res.body);
-        if (decoded is Map) {
-          decoded.forEach((key, val) {
-            if (val is Map) {
-              final String id = val['id']?.toString() ?? '';
-              final String type = val['type']?.toString() ?? '';
-              final bool isActive = val['isActive'] == true;
-
-              if (id.isNotEmpty) {
-                if (type == 'instansi') {
-                  int idx = _instansiList.indexWhere((e) => e.id == id || e.kodeInstansi.toLowerCase() == id.toLowerCase());
-                  if (idx != -1 && _instansiList[idx].isActive != isActive) {
-                    _instansiList[idx] = _instansiList[idx].copyWith(isActive: isActive);
-                  }
-                } else if (type == 'layanan') {
-                  int idx = _layananList.indexWhere((e) => e.id == id);
-                  if (idx != -1 && _layananList[idx].isActive != isActive) {
-                    _layananList[idx] = _layananList[idx].copyWith(isActive: isActive);
-                  }
-                } else if (type == 'sektor') {
-                  int idx = _sektorList.indexWhere((e) => e.id == id);
-                  if (idx != -1 && _sektorList[idx].isActive != isActive) {
-                    _sektorList[idx] = _sektorList[idx].copyWith(isActive: isActive);
-                  }
-                }
-              }
-            }
-          });
-          notifyListeners();
-        }
-      }
-    } catch (e) {
-      debugPrint('RTDB fetch status error: $e');
-    }
-  }
 
   void _syncToRtdb(String docId, Map<String, dynamic> data) async {
     try {
@@ -150,6 +105,75 @@ class OpdService extends ChangeNotifier {
       });
     } catch (e) {
       debugPrint('Firestore opd_status init error: $e');
+    }
+  }
+
+  void _listenToCloudSektorMaster() {
+    try {
+      _db.collection('sektor_master').snapshots().listen((snapshot) {
+        if (snapshot.docs.isEmpty) return;
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final sektor = SektorModel.fromMap(data);
+          
+          int idx = _sektorList.indexWhere((e) => e.id == sektor.id);
+          if (idx != -1) {
+            _sektorList[idx] = sektor;
+          } else {
+            _sektorList.add(sektor);
+          }
+        }
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('Firestore sektor_master listen error: $e');
+    }
+  }
+
+  void _listenToCloudInstansiMaster() {
+    try {
+      _db.collection('instansi_master').snapshots().listen((snapshot) {
+        if (snapshot.docs.isEmpty) return;
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final instansi = InstansiModel.fromMap(data);
+          
+          int idx = _instansiList.indexWhere((e) => e.id == instansi.id);
+          if (idx != -1) {
+            _instansiList[idx] = instansi;
+          } else {
+            _instansiList.add(instansi);
+          }
+        }
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('Firestore instansi_master listen error: $e');
+    }
+  }
+
+  void _listenToCloudLayananMaster() {
+    try {
+      _db.collection('layanan_master').snapshots().listen((snapshot) {
+        if (snapshot.docs.isEmpty) return;
+
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final layanan = LayananModel.fromMap(data);
+          
+          int idx = _layananList.indexWhere((e) => e.id == layanan.id);
+          if (idx != -1) {
+            _layananList[idx] = layanan;
+          } else {
+            _layananList.add(layanan);
+          }
+        }
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('Firestore layanan_master listen error: $e');
     }
   }
 
@@ -965,22 +989,74 @@ class OpdService extends ChangeNotifier {
     }
   }
 
-  void addSektor(SektorModel item) {
-    _sektorList.add(item);
-    notifyListeners();
+  /// FUNGSI UNTUK MONITOR PROGRES UNGGAH
+  UploadTask? getUploadTask(String localPath, {String folder = 'sektor_icons'}) {
+    if (localPath.startsWith('assets/') || localPath.startsWith('http')) {
+      return null;
+    }
+
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${localPath.split('/').last}';
+      final ref = FirebaseStorage.instance.ref().child('$folder/$fileName');
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+      if (kIsWeb) {
+        // Gunakan stream untuk mendapatkan byte secara efisien
+        return ref.putData(Uri.parse(localPath).data!.contentAsBytes(), metadata);
+      } else {
+        return ref.putFile(File(localPath), metadata);
+      }
+    } catch (e) {
+      debugPrint('Task creation error: $e');
+      return null;
+    }
   }
 
-  void updateSektor(SektorModel updated) {
+  /// FUNGSI UNGGAL FILE KE FIREBASE STORAGE (VERSI LAMA/SIMPLE)
+
+  void addSektor(SektorModel item) async {
+    // Cek duplikasi lokal
+    int existing = _sektorList.indexWhere((e) => e.id == item.id);
+    if (existing == -1) {
+      _sektorList.add(item);
+    } else {
+      _sektorList[existing] = item;
+    }
+    notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('sektor_master').doc(item.id).set(item.toMap());
+    } catch (e) {
+      debugPrint('Add Sektor Cloud Error: $e');
+    }
+  }
+
+  void updateSektor(SektorModel updated) async {
     int idx = _sektorList.indexWhere((e) => e.id == updated.id);
     if (idx != -1) {
       _sektorList[idx] = updated;
       notifyListeners();
+
+      // SINKRONISASI KE CLOUD FIRESTORE
+      try {
+        await _db.collection('sektor_master').doc(updated.id).update(updated.toMap());
+      } catch (e) {
+        debugPrint('Update Sektor Cloud Error: $e');
+      }
     }
   }
 
-  void deleteSektor(String id) {
+  void deleteSektor(String id) async {
     _sektorList.removeWhere((e) => e.id == id);
     notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('sektor_master').doc(id).delete();
+    } catch (e) {
+      debugPrint('Delete Sektor Cloud Error: $e');
+    }
   }
 
   void toggleSektorStatus(String id) async {
@@ -1028,22 +1104,49 @@ class OpdService extends ChangeNotifier {
     }
   }
 
-  void addInstansi(InstansiModel item) {
-    _instansiList.add(item);
+  void addInstansi(InstansiModel item) async {
+    // Cek duplikasi lokal
+    int existing = _instansiList.indexWhere((e) => e.id == item.id || e.kodeInstansi == item.kodeInstansi);
+    if (existing == -1) {
+      _instansiList.add(item);
+    } else {
+      _instansiList[existing] = item;
+    }
     notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('instansi_master').doc(item.id).set(item.toMap());
+    } catch (e) {
+      debugPrint('Add Instansi Cloud Error: $e');
+    }
   }
 
-  void updateInstansi(InstansiModel updated) {
+  void updateInstansi(InstansiModel updated) async {
     int idx = _instansiList.indexWhere((e) => e.id == updated.id);
     if (idx != -1) {
       _instansiList[idx] = updated;
       notifyListeners();
+
+      // SINKRONISASI KE CLOUD FIRESTORE
+      try {
+        await _db.collection('instansi_master').doc(updated.id).update(updated.toMap());
+      } catch (e) {
+        debugPrint('Update Instansi Cloud Error: $e');
+      }
     }
   }
 
-  void deleteInstansi(String id) {
+  void deleteInstansi(String id) async {
     _instansiList.removeWhere((e) => e.id == id);
     notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('instansi_master').doc(id).delete();
+    } catch (e) {
+      debugPrint('Delete Instansi Cloud Error: $e');
+    }
   }
 
   void toggleInstansiStatus(String id) async {
@@ -1096,22 +1199,49 @@ class OpdService extends ChangeNotifier {
         .toList();
   }
 
-  void addLayanan(LayananModel item) {
-    _layananList.add(item);
+  void addLayanan(LayananModel item) async {
+    // Cek duplikasi lokal
+    int existing = _layananList.indexWhere((e) => e.id == item.id);
+    if (existing == -1) {
+      _layananList.add(item);
+    } else {
+      _layananList[existing] = item;
+    }
     notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('layanan_master').doc(item.id).set(item.toMap());
+    } catch (e) {
+      debugPrint('Add Layanan Cloud Error: $e');
+    }
   }
 
-  void updateLayanan(LayananModel updated) {
+  void updateLayanan(LayananModel updated) async {
     int idx = _layananList.indexWhere((e) => e.id == updated.id);
     if (idx != -1) {
       _layananList[idx] = updated;
       notifyListeners();
+
+      // SINKRONISASI KE CLOUD FIRESTORE
+      try {
+        await _db.collection('layanan_master').doc(updated.id).update(updated.toMap());
+      } catch (e) {
+        debugPrint('Update Layanan Cloud Error: $e');
+      }
     }
   }
 
-  void deleteLayanan(String id) {
+  void deleteLayanan(String id) async {
     _layananList.removeWhere((e) => e.id == id);
     notifyListeners();
+
+    // SINKRONISASI KE CLOUD FIRESTORE
+    try {
+      await _db.collection('layanan_master').doc(id).delete();
+    } catch (e) {
+      debugPrint('Delete Layanan Cloud Error: $e');
+    }
   }
 
   void toggleLayananStatus(String id) async {
