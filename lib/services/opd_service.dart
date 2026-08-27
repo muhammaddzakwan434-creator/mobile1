@@ -195,7 +195,7 @@ class OpdService extends ChangeNotifier {
     'Berapa lama pengaduan diproses?':
         'Proses pengaduan dan permohonan layanan biasanya memakan waktu 1-3 hari kerja tergantung pada tingkat kompleksitas masalah.',
     'Apa saja layanan yang tersedia?':
-        'Saat ini tersedia layanan Pengaduan Infrastruktur, Layanan Dukcapil Digital, Informasi Cuaca, Berita Kota Sukabumi, dan Integrasi SSO IKD.',
+        'Saat ini tersedia layanan Pengaduan Infrastruktur, Layanan Dukcapil Digital, Informasi Cuaca, dan Berita terbaru Kota Sukabumi.',
     'Di mana lokasi kantor pelayanan?':
         'Kantor Pusat Layanan terpadu berada di Balai Kota Sukabumi, Jl. R. Syamsudin, S.H. No.25.',
     'Mengapa pengaduan saya belum ditindaklanjuti?':
@@ -579,7 +579,7 @@ class OpdService extends ChangeNotifier {
         formFields: [
           CustomFieldConfig(id: 'f1', label: 'NIK Pemohon (16 Digit)', type: FieldType.number, hint: 'Masukkan 16 digit NIK'),
           CustomFieldConfig(id: 'f2', label: 'Nama Lengkap Pemohon', type: FieldType.shortText, hint: 'Sesuai KTP / Akta'),
-          CustomFieldConfig(id: 'f3', label: 'Jenis Permohonan KTP', type: FieldType.dropdown, options: ['Perekaman Baru (Pemula 17 Th)', 'Ganti KTP Rusak', 'Ganti KTP Hilang', 'Aktivasi KTP Digital (IKD)']),
+          CustomFieldConfig(id: 'f3', label: 'Jenis Permohonan KTP', type: FieldType.dropdown, options: ['Perekaman Baru (Pemula 17 Th)', 'Ganti KTP Rusak', 'Ganti KTP Hilang']),
           CustomFieldConfig(id: 'f4', label: 'Nomor Kartu Keluarga (KK)', type: FieldType.number, hint: 'Masukkan 16 digit No. KK'),
           CustomFieldConfig(id: 'f5', label: 'Nomor WhatsApp / HP', type: FieldType.number, hint: 'Contoh: 081234567890'),
           CustomFieldConfig(id: 'f6', label: 'Alasan / Keterangan Tambahan', type: FieldType.longText, hint: 'Jelaskan alasan permohonan...'),

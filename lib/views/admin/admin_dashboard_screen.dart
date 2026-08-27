@@ -2804,7 +2804,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         final totalTerdaftar = allWarga.length;
         final totalTerverifikasi = allWarga.where((e) {
           final status = e['status'] ?? '';
-          return status == 'ACTIVE' || status.contains('IKD') || status.contains('SSO') || status.contains('Google') || status.contains('OTP');
+          return status == 'ACTIVE' || status.contains('SSO') || status.contains('Google') || status.contains('OTP');
         }).length;
         final totalDitangguhkan = allWarga.where((e) {
           final status = e['status'] ?? '';
@@ -3297,7 +3297,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               const SizedBox(height: 10),
               _buildDetailInfoItem('Tanggal Terdaftar', joinedDate, Icons.calendar_today_outlined),
               const SizedBox(height: 10),
-              _buildDetailInfoItem('Tipe Otentikasi', 'Single Sign-On (SSO) & Identitas Kependudukan Digital (IKD)', Icons.verified_user_outlined),
+              _buildDetailInfoItem(
+                'Tipe Otentikasi', 
+                status.contains('Google') ? 'Google Authentication' : 
+                status.contains('SSO') ? 'Single Sign-On (SSO)' : 
+                'Email & Password (OTP Resmi)', 
+                Icons.verified_user_outlined
+              ),
               const SizedBox(height: 24),
               Row(
                 children: [

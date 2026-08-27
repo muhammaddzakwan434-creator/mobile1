@@ -11,7 +11,7 @@ class UserModel {
   String email;            // Alamat Email Resmi
   String username;         // Username / NIK / NIP Pengguna
   String phoneNumber;      // Nomor Telepon / WhatsApp
-  String status;           // Status Verifikasi (Terverifikasi IKD, SSO, WA)
+  String status;           // Status Verifikasi (Terverifikasi SSO, Google, Email)
   String joinedDate;       // Tanggal Bergabung
   String profileImagePath; // Jalur Foto Profil Avatar Pengguna
 

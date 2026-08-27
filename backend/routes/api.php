@@ -237,7 +237,7 @@ Route::patch('/warga/{id}/toggle-status', function ($id) {
         return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
     }
 
-    $isCurrentlyActive = ($user->status == 'ACTIVE' || str_contains($user->status, 'IKD') || str_contains($user->status, 'SSO') || str_contains($user->status, 'TERVERIFIKASI'));
+    $isCurrentlyActive = ($user->status == 'ACTIVE' || str_contains($user->status, 'SSO') || str_contains($user->status, 'TERVERIFIKASI'));
     $user->status = $isCurrentlyActive ? 'DITANGGUHKAN' : 'ACTIVE';
     $user->save();
 
@@ -289,15 +289,6 @@ Route::patch('/feedback/{id}/reply', function (Request $request, $id) {
         return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
     }
 });
-
-Route::patch('/feedback/{id}/reply', function (Request $request, $id) {
-    try {
-        $validated = $request->validate([
-            'reply' => 'required|string',
-        ]);
-
-        \DB::table('feedbacks')->where('id', $id)->update([
-            'reply' => $validated['reply'],
             'updated_at' => now(),
         ]);
 

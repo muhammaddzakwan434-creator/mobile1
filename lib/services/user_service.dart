@@ -592,7 +592,7 @@ class UserService extends ChangeNotifier {
     final index = _registeredUsers.indexWhere((u) => u['id'] == id || u['email'] == id);
     if (index != -1) {
       final currentStatus = _registeredUsers[index]['status'] ?? 'ACTIVE';
-      final isCurrentlyActive = (currentStatus == 'ACTIVE' || currentStatus.contains('IKD') || currentStatus.contains('SSO') || currentStatus == 'TERVERIFIKASI');
+      final isCurrentlyActive = (currentStatus == 'ACTIVE' || currentStatus.contains('SSO') || currentStatus == 'TERVERIFIKASI');
       final newStatus = isCurrentlyActive ? 'DITANGGUHKAN' : 'ACTIVE';
       
       _registeredUsers[index]['status'] = newStatus;

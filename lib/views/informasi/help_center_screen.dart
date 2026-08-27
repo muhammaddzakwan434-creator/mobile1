@@ -42,7 +42,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
     'Berapa lama pengaduan diproses?':
         'Proses pengaduan dan permohonan layanan biasanya memakan waktu 1-3 hari kerja tergantung pada tingkat kompleksitas masalah dan instansi yang berwenang menanganinya.',
     'Apa saja layanan yang tersedia?':
-        'Saat ini tersedia layanan Pengaduan Infrastruktur, Layanan Dukcapil Digital, Informasi Cuaca, Berita Kota Sukabumi, dan Integrasi SSO IKD.',
+        'Saat ini tersedia layanan Pengaduan Infrastruktur, Layanan Dukcapil Digital, Informasi Cuaca, dan Berita terbaru Kota Sukabumi.',
     'Di mana lokasi kantor pelayanan?':
         'Kantor Pusat Layanan terpadu berada di Balai Kota Sukabumi, Jl. R. Syamsudin, S.H. No.25.',
     'Mengapa pengaduan saya belum ditindaklanjuti?':
