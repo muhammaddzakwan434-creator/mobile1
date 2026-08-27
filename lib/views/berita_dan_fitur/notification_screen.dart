@@ -184,26 +184,41 @@ class _NotificationScreenState extends State<NotificationScreen> {
           children: [
             Column(
               children: [
-                // Light Blue Layer (Title)
+                // Header Layer with Poster Background (Notif.png)
                 Container(
                   width: double.infinity,
-                  height: 70,
-                  color: const Color(0xFFC5D9ED),
-                  child: const Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.notifications_none_rounded, color: Color(0xFF123457), size: 32),
-                        SizedBox(width: 8),
-                        Text(
-                          'Notifikasi',
-                          style: TextStyle(
-                            color: Color(0xFF123457),
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                  height: 90,
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/poster/Notif.png'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.15),
+                    child: const Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_none_rounded, color: Colors.white, size: 32),
+                          SizedBox(width: 8),
+                          Text(
+                            'Notifikasi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 4,
+                                  color: Colors.black45,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
