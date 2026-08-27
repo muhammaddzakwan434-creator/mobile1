@@ -187,31 +187,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 // Header Layer with Poster Background (notif.png)
                 Container(
                   width: double.infinity,
-                  height: 90,
+                  height: 110,
                   decoration: const BoxDecoration(
                     image: DecorationImage(
                       image: AssetImage('assets/poster/notif.png'),
-                      fit: BoxFit.cover,
+                      fit: BoxFit.fill,
                     ),
                   ),
                   child: Container(
-                    color: Colors.black.withOpacity(0.15),
+                    color: const Color(0xFF0A1E33).withOpacity(0.35),
                     child: const Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.notifications_none_rounded, color: Colors.white, size: 32),
+                          Icon(Icons.notifications_none_rounded, color: Colors.white, size: 30),
                           SizedBox(width: 8),
                           Text(
                             'Notifikasi',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                               shadows: [
                                 Shadow(
-                                  blurRadius: 4,
-                                  color: Colors.black45,
+                                  blurRadius: 6,
+                                  color: Colors.black54,
                                   offset: Offset(0, 2),
                                 ),
                               ],
@@ -231,7 +232,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 // Dark Blue Layer (Filters)
                 Container(
                   width: double.infinity,
-                  height: 80,
+                  height: 84,
                   decoration: const BoxDecoration(
                     color: Color(0xFF123457),
                     borderRadius: BorderRadius.only(
@@ -239,7 +240,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       bottomRight: Radius.circular(24),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 32, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 34, 16, 12),
                   child: Row(
                     children: [
                       _buildFilterTab(accentColor),
@@ -253,7 +254,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ),
             // Floating Search Bar
             Positioned(
-              top: 50, // Center over the yellow line (70-20ish)
+              top: 88, // Centered over the yellow line between header and filters
               left: 24,
               right: 24,
               child: Container(
