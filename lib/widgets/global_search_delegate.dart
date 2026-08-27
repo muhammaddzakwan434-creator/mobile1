@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/opd_service.dart';
 import '../models/global_search_model.dart';
 import '../views/instansi/generic_info_instansi_screen.dart';
-import '../views/layanan/layanan_screen.dart';
-import '../views/layanan/layanan_screen.dart';
 import '../views/layanan/generic_layanan_sektor_screen.dart';
 import '../views/informasi/help_center_screen.dart';
 import '../views/informasi/about_screen.dart';
