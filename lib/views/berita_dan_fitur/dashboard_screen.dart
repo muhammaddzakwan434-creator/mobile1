@@ -95,6 +95,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _newsTimer;
   Timer? _clockTimer;
 
+  // Banner Slideshow State
+  final PageController _bannerPageController = PageController();
+  int _currentBannerIndex = 0;
+  Timer? _bannerTimer;
+  final List<String> _bannerImages = [
+    'assets/poster/Banner Layanan.jpg.jpeg',
+    'assets/poster/Banner Tentang APK.jpg.jpeg',
+  ];
+
   // Daftar ID Sektor yang terakhir kali berinteraksi (Recency Logic)
   List<String> _recentSectorIds = ['keluarga'];
 
@@ -105,6 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fetchRealtimeWeather();
     _fetchBeritaTerbaru();
     _startNewsAutoSlide();
+    _startBannerAutoSlide();
     _loadSectorUsage();
   }
 
@@ -299,16 +309,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _startBannerAutoSlide() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && _bannerImages.isNotEmpty && _bannerPageController.hasClients) {
+        final nextIndex = (_currentBannerIndex + 1) % _bannerImages.length;
+        _bannerPageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
   Future<void> _handleRefresh() async {
     await _fetchRealtimeWeather();
     await _fetchBeritaTerbaru();
   }
 
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
+  @override
+  void dispose() {
+    _clockTimer?.cancel();
+    _newsTimer?.cancel();
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildBannerSlideshow() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 160,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              )
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: PageView.builder(
+              controller: _bannerPageController,
+              onPageChanged: (index) {
+                if (mounted) {
+                  setState(() {
+                    _currentBannerIndex = index;
+                  });
+                }
+              },
+              itemCount: _bannerImages.length,
+              itemBuilder: (context, index) {
+                return Image.asset(
+                  _bannerImages[index],
+                  width: double.infinity,
+                  height: 160,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: const Color(0xFF0A1E33),
+                    child: const Center(
+                      child: Text(
+                        'Layanan Utama Kota Sukabumi',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_bannerImages.length, (index) {
+            final bool isActive = index == _currentBannerIndex;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 20 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFFE8A33D) : Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 
@@ -734,66 +828,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       const SizedBox(height: 16),
 
-                      // BANNER SLIDESHOW LAYANAN UTAMA (DARK NAVY CARD WITH DOTS)
-                      Container(
-                        width: double.infinity,
-                        height: 150,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0A1E33),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Expanded(
-                              child: Center(
-                                child: Text(
-                                  'Layanan Informasi Utama Kota Sukabumi',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    fontFamily: 'Poppins',
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFE8A33D),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                      // BANNER SLIDESHOW LAYANAN UTAMA (AUTOMATIC IMAGE CAROUSEL)
+                      _buildBannerSlideshow(),
                     ],
                   ),
                 ),
