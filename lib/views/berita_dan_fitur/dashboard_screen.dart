@@ -100,8 +100,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
   final List<String> _bannerImages = [
-    'assets/poster/Banner Layanan.jpg.jpeg',
-    'assets/poster/Banner Tentang APK.jpg.jpeg',
+    'assets/poster/banner_layanan.jpeg',
+    'assets/poster/banner_tentang_apk.jpeg',
   ];
 
   // Daftar ID Sektor yang terakhir kali berinteraksi (Recency Logic)
