@@ -338,11 +338,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBannerSlideshow() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Menyesuaikan tinggi rasio banner secara responsif terhadap lebar layar HP (rasio ~2.6:1)
+    final responsiveHeight = ((screenWidth > 600 ? 600 : screenWidth) / 2.6).clamp(135.0, 240.0);
+
     return Column(
       children: [
         Container(
           width: double.infinity,
-          height: 160,
+          height: responsiveHeight,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: const [
@@ -369,8 +373,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return Image.asset(
                   _bannerImages[index],
                   width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover,
+                  height: double.infinity,
+                  fit: BoxFit.fill,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: const Color(0xFF0A1E33),
                     child: const Center(
