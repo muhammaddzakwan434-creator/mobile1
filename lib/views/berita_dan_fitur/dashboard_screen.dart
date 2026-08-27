@@ -231,6 +231,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _searchController.dispose();
     _newsTimer?.cancel();
     _clockTimer?.cancel();
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
     super.dispose();
   }
 
@@ -333,16 +335,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
     );
-  }
-
-  @override
-  void dispose() {
-    _clockTimer?.cancel();
-    _newsTimer?.cancel();
-    _bannerTimer?.cancel();
-    _bannerPageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 
   Widget _buildBannerSlideshow() {
