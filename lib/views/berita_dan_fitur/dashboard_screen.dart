@@ -327,6 +327,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _fetchBeritaTerbaru();
   }
 
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   void dispose() {
     _clockTimer?.cancel();
